@@ -1,41 +1,42 @@
 <?php
 session_start();
-require_once "config/Database.php";
+
+// Segurança: apenas ADMIN (Tipo 1) pode excluir usuários
+if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] != 1) {
+    header("Location: index.php");
+    exit;
+}
+
+require_once "config/bootstrap.php";
 
 if (isset($_GET['id'])) {
-    $db = (new Database())->getConnection();
+    $db = getDB();
+    $usuarioDAO = new UsuarioDAO($db);
     $id = $_GET['id'];
+
+    // Impede o admin de excluir a própria conta logada
+    if ($id == $_SESSION['usuario_id']) {
+        header("Location: usuarios.php?msg=auto_exclusao");
+        exit;
+    }
 
     try {
         $db->beginTransaction();
-
-        // 1. Buscar os IDs de usuário e endereço vinculados a este fornecedor
-        $sqlBusca = "SELECT usuario_id, endereco_id FROM FORNECEDOR WHERE fornecedor_id = ?";
-        $stmtBusca = $db->prepare($sqlBusca);
-        $stmtBusca->execute([$id]);
-        $f = $stmtBusca->fetch(PDO::FETCH_ASSOC);
-
-        if ($f) {
-            $user_id = $f['usuario_id'];
-
-            $stmt1 = $db->prepare("DELETE FROM FORNECEDOR WHERE fornecedor_id = ?");
-            $stmt1->execute([$id]);
-
-            $stmt2 = $db->prepare("DELETE FROM USUARIO WHERE usuario_id = ?");
-            $stmt2->execute([$user_id]);
-
-            $db->commit();
-            header("Location: fornecedores.php?msg=sucesso");
-        } else {
-            header("Location: fornecedores.php?msg=nao_encontrado");
-        }
-
+        $usuarioDAO->excluirComDependencias($id);
+        $db->commit();
+        header("Location: usuarios.php?msg=sucesso");
+        exit;
     } catch (Exception $e) {
-        $db->rollBack();
-        // Se o erro persistir, pode ser que este fornecedor tenha PRODUTOS vinculados a ele!
-        echo "<h3>Erro de Integridade</h3>";
-        echo "Não é possível excluir este fornecedor pois ele possui <b>Produtos</b> cadastrados.";
-        echo "<br>Remova os produtos deste fornecedor primeiro.";
-        echo "<br><br><a href='fornecedores.php'>Voltar</a>";
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        // Geralmente ocorre quando o usuário é um Fornecedor com produtos/pedidos vinculados
+        echo "<h3>Não foi possível excluir o usuário</h3>";
+        echo "<p>Provavelmente há registros vinculados (ex.: produtos de um fornecedor ou pedidos de um cliente).</p>";
+        echo "<p>Remova esses registros primeiro e tente novamente.</p>";
+        echo "<a href='usuarios.php'>Voltar</a>";
     }
+} else {
+    header("Location: usuarios.php");
+    exit;
 }

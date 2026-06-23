@@ -2,26 +2,37 @@
 session_start();
 if (!isset($_SESSION['usuario_id'])) { header("Location: index.php"); exit; }
 
-require_once "config/Database.php";
-require_once "classes/Produto.php";
+require_once "config/bootstrap.php";
 
-$db = (new Database())->getConnection();
-$prodObj = new Produto($db);
+$db = getDB();
+$produtoDAO   = new ProdutoDAO($db);
+$estoqueDAO   = new EstoqueDAO($db);
+$fornecedorDAO = new FornecedorDAO($db);
 
-// Processar Cadastro
+// Processar Cadastro (produto + estoque numa única transação)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_cadastrar'])) {
-    if($prodObj->cadastrar($_POST['nome'], $_POST['descricao'], $_POST['fornecedor_id'], $_POST['qtd'], $_POST['preco'])) {
+    try {
+        $db->beginTransaction();
+
+        $produto = new Produto($_POST['nome'], $_POST['descricao'], $_POST['fornecedor_id']);
+        $produtoId = $produtoDAO->inserir($produto);
+
+        $estoqueDAO->inserir(new Estoque($produtoId, $_POST['qtd'], $_POST['preco']));
+
+        $db->commit();
         echo "<script>alert('Produto e estoque criados com sucesso!'); window.location.href='produtos.php';</script>";
+    } catch (Exception $e) {
+        $db->rollBack();
+        die("ERRO AO CRIAR PRODUTO: " . $e->getMessage());
     }
 }
 
 // Busca fornecedores para o Select (Combo Box)
-$stmtForn = $db->query("SELECT fornecedor_id, nome FROM FORNECEDOR ORDER BY nome ASC");
-$fornecedores = $stmtForn->fetchAll(PDO::FETCH_ASSOC);
+$fornecedores = $fornecedorDAO->listarParaSelect();
 
 // Busca de Produtos
 $busca = $_GET['search'] ?? "";
-$lista = $prodObj->consultar($busca);
+$lista = $produtoDAO->consultar($busca);
 ?>
 
 <!DOCTYPE html>
@@ -76,7 +87,7 @@ $lista = $prodObj->consultar($busca);
                 </tr>
             </thead>
             <tbody>
-                <?php while($p = $lista->fetch(PDO::FETCH_ASSOC)): ?>
+                <?php foreach($lista as $p): ?>
                 <tr>
                     <td><?= $p['produto_id'] ?></td>
                     <td><?= htmlspecialchars($p['nome']) ?></td>
@@ -88,7 +99,7 @@ $lista = $prodObj->consultar($busca);
                         <a href="excluir_produto.php?id=<?= $p['produto_id'] ?>" class="btn-del" onclick="return confirm('Excluir este produto?')">Remover</a>
                     </td>
                 </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             </tbody>
         </table>
     </div>

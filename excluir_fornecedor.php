@@ -1,33 +1,29 @@
 <?php
 session_start();
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 
 if (isset($_GET['id'])) {
-    $db = (new Database())->getConnection();
+    $db = getDB();
+    $fornecedorDAO = new FornecedorDAO($db);
+    $usuarioDAO    = new UsuarioDAO($db);
+    $enderecoDAO   = new EnderecoDAO($db);
     $id = $_GET['id'];
 
     try {
         $db->beginTransaction();
 
         // 1. Buscar os IDs de usuário e endereço vinculados a este fornecedor
-        $sqlBusca = "SELECT usuario_id, endereco_id FROM FORNECEDOR WHERE fornecedor_id = ?";
-        $stmtBusca = $db->prepare($sqlBusca);
-        $stmtBusca->execute([$id]);
-        $f = $stmtBusca->fetch(PDO::FETCH_ASSOC);
+        $f = $fornecedorDAO->buscarVinculos($id);
 
         if ($f) {
             $user_id = $f['usuario_id'];
             $end_id = $f['endereco_id'];
 
-            $stmt1 = $db->prepare("DELETE FROM FORNECEDOR WHERE fornecedor_id = ?");
-            $stmt1->execute([$id]);
+            $fornecedorDAO->excluir($id);
 
             // 3. DELETAR OS PAIS (USUARIO e ENDERECO)
-            $stmt2 = $db->prepare("DELETE FROM USUARIO WHERE usuario_id = ?");
-            $stmt2->execute([$user_id]);
-
-            $stmt3 = $db->prepare("DELETE FROM ENDERECO WHERE endereco_id = ?");
-            $stmt3->execute([$end_id]);
+            $usuarioDAO->excluir($user_id);
+            $enderecoDAO->excluir($end_id);
 
             $db->commit();
             header("Location: fornecedores.php?msg=sucesso");

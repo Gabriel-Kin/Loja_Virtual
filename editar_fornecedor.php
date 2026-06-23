@@ -2,22 +2,17 @@
 session_start();
 if (!isset($_SESSION['usuario_id'])) { header("Location: index.php"); exit; }
 
-require_once "config/Database.php";
-$db = (new Database())->getConnection();
+require_once "config/bootstrap.php";
+$db = getDB();
+$usuarioDAO    = new UsuarioDAO($db);
+$enderecoDAO   = new EnderecoDAO($db);
+$fornecedorDAO = new FornecedorDAO($db);
 $mensagem = "";
 
-// 1. Busca os dados atuais
+// 1. Busca os dados atuais (via DAO)
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
-    $sql = "SELECT f.*, e.*, u.email, u.senha 
-            FROM FORNECEDOR f
-            JOIN ENDERECO e ON f.endereco_id = e.endereco_id
-            JOIN USUARIO u ON f.usuario_id = u.usuario_id
-            WHERE f.fornecedor_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$id]);
-    $dados = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    $dados = $fornecedorDAO->buscarCompletoPorId($id);
     if (!$dados) { die("Fornecedor não encontrado."); }
 }
 
@@ -26,17 +21,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
         $db->beginTransaction();
 
-        // Update Usuário
-        $db->prepare("UPDATE USUARIO SET email = ?, senha = ? WHERE usuario_id = ?")
-           ->execute([$_POST['email'], $_POST['senha'], $dados['usuario_id']]);
+        // Update Usuário (email e, opcionalmente, nova senha com hash)
+        if (!empty($_POST['senha'])) {
+            $novaSenha = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+        } else {
+            $novaSenha = $dados['senha']; // mantém o hash atual
+        }
+        $usuarioDAO->atualizarCredenciais($dados['usuario_id'], $_POST['email'], $novaSenha);
 
-        // Update Endereço (Ajuste para BAIRRO ou BAIRO conforme seu banco)
-        $db->prepare("UPDATE ENDERECO SET rua = ?, numero = ?, bairro = ?, cidade = ?, estado = ?, cep = ? WHERE endereco_id = ?")
-           ->execute([$_POST['rua'], $_POST['numero'], $_POST['bairro'], $_POST['cidade'], $_POST['estado'], $_POST['cep'], $dados['endereco_id']]);
+        // Update Endereço
+        $endereco = new Endereco([
+            'endereco_id' => $dados['endereco_id'],
+            'rua'    => $_POST['rua'],    'numero' => $_POST['numero'],
+            'bairro' => $_POST['bairro'], 'cidade' => $_POST['cidade'],
+            'estado' => $_POST['estado'], 'cep'    => $_POST['cep']
+        ]);
+        $enderecoDAO->atualizar($endereco);
 
         // Update Fornecedor
-        $db->prepare("UPDATE FORNECEDOR SET nome = ?, telefone = ?, descricao = ? WHERE fornecedor_id = ?")
-           ->execute([$_POST['nome'], $_POST['telefone'], $_POST['descricao'], $id]);
+        $fornecedor = new Fornecedor([
+            'fornecedor_id' => $id,
+            'nome'      => $_POST['nome'],
+            'telefone'  => $_POST['telefone'],
+            'descricao' => $_POST['descricao']
+        ]);
+        $fornecedorDAO->atualizar($fornecedor);
 
         $db->commit();
         header("Location: fornecedores.php?msg=sucesso");
@@ -67,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <form method="POST">
             <input type="text" name="nome" value="<?= $dados['nome'] ?>" required>
             <input type="email" name="email" value="<?= $dados['email'] ?>" required>
-            <input type="text" name="senha" value="<?= $dados['senha'] ?>" required>
+            <input type="password" name="senha" placeholder="Nova senha (deixe em branco para manter)">
             <input type="text" name="telefone" value="<?= $dados['telefone'] ?>">
             <textarea name="descricao"><?= $dados['descricao'] ?></textarea>
             

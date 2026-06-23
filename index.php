@@ -1,13 +1,12 @@
 <?php
 session_start();
-require_once "config/Database.php";
-require_once "classes/Produto.php";
+require_once "config/bootstrap.php";
 
-$db = (new Database())->getConnection();
-$prodObj = new Produto($db);
+$db = getDB();
+$produtoDAO = new ProdutoDAO($db);
 
 // Busca os produtos para exibir na vitrine
-$listaProdutos = $prodObj->consultar(""); 
+$listaProdutos = $produtoDAO->consultar("");
 ?>
 
 <!DOCTYPE html>
@@ -28,7 +27,7 @@ $listaProdutos = $prodObj->consultar("");
         <hr>
         
         <div class="vitrine">
-            <?php while($p = $listaProdutos->fetch(PDO::FETCH_ASSOC)): ?>
+            <?php foreach($listaProdutos as $p): ?>
                 <div class="produto-card">
                     <div style="background:#f0f0f0; height:150px; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#ccc;">
                         [Sem Imagem]
@@ -38,9 +37,9 @@ $listaProdutos = $prodObj->consultar("");
                     <p class="preco">R$ <?= number_format($p['preco'], 2, ',', '.') ?></p>
                     <button class="btn" style="width:100%">Adicionar ao Carrinho</button>
                 </div>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
 
-            <?php if($listaProdutos->rowCount() == 0): ?>
+            <?php if(count($listaProdutos) == 0): ?>
                 <p>Nenhum produto cadastrado no momento.</p>
             <?php endif; ?>
         </div>

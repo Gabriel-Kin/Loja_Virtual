@@ -8,7 +8,7 @@ if (!isset($_SESSION['usuario_id'])) {
     exit;
 }
 
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 
 $usuario_email = $_SESSION['usuario_email'];
 $usuario_tipo = $_SESSION['usuario_tipo']; // 1. ADMIN, 2. CLIENTE, 3. FORNECEDOR
@@ -42,6 +42,11 @@ $usuario_tipo = $_SESSION['usuario_tipo']; // 1. ADMIN, 2. CLIENTE, 3. FORNECEDO
             background: #e3f2fd;
             border-color: #2196f3;
         }
+        .card-menu .card-icon {
+            font-size: 32px;
+            color: #1e88e5;
+            margin-bottom: 12px;
+        }
         .welcome-banner {
             background: #fff;
             padding: 20px;
@@ -70,11 +75,23 @@ $usuario_tipo = $_SESSION['usuario_tipo']; // 1. ADMIN, 2. CLIENTE, 3. FORNECEDO
         <div class="dashboard-grid">
             
             <?php if($usuario_tipo == 1): ?>
+                <a href="usuarios.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-users-gear"></i></div>
+                    <h3>Gestão de Usuários</h3>
+                    <p>Cadastrar e gerenciar contas</p>
+                </a>
+                <a href="clientes.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-user-group"></i></div>
+                    <h3>Gestão de Clientes</h3>
+                    <p>Cadastrar e listar clientes</p>
+                </a>
                 <a href="fornecedores.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-truck-field"></i></div>
                     <h3>Gestão de Fornecedores</h3>
                     <p>Cadastrar e listar parceiros</p>
                 </a>
                 <a href="produtos.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
                     <h3>Gestão de Produtos</h3>
                     <p>Controle de estoque e preços</p>
                 </a>
@@ -82,10 +99,12 @@ $usuario_tipo = $_SESSION['usuario_tipo']; // 1. ADMIN, 2. CLIENTE, 3. FORNECEDO
 
             <?php if($usuario_tipo == 2): ?>
                 <a href="meus_pedidos.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-bag-shopping"></i></div>
                     <h3>Meus Pedidos</h3>
                     <p>Acompanhe suas compras</p>
                 </a>
                 <a href="perfil.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-id-card"></i></div>
                     <h3>Meu Perfil</h3>
                     <p>Editar endereço e dados</p>
                 </a>
@@ -93,23 +112,21 @@ $usuario_tipo = $_SESSION['usuario_tipo']; // 1. ADMIN, 2. CLIENTE, 3. FORNECEDO
 
             <?php if($usuario_tipo == 3): ?>
                 <a href="produtos.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
                     <h3>Meus Produtos</h3>
                     <p>Cadastrar e gerenciar seus itens</p>
                 </a>
                 <a href="vendas_recebidas.php" class="card-menu">
+                    <div class="card-icon"><i class="fa-solid fa-chart-line"></i></div>
                     <h3>Vendas</h3>
                     <p>Pedidos recebidos dos clientes</p>
                 </a>
             <?php endif; ?>
 
             <a href="index.php" class="card-menu">
+                <div class="card-icon"><i class="fa-solid fa-store"></i></div>
                 <h3>Ir para a Loja</h3>
                 <p>Ver produtos disponíveis</p>
-            </a>
-
-            <a href="logout.php" class="card-menu" style="border-color: #ffcdd2;">
-                <h3 style="color: #d32f2f;">Sair</h3>
-                <p>Encerrar sessão</p>
             </a>
 
         </div>

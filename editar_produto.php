@@ -2,32 +2,28 @@
 session_start();
 if (!isset($_SESSION['usuario_id'])) { header("Location: index.php"); exit; }
 
-require_once "config/Database.php";
-$db = (new Database())->getConnection();
+require_once "config/bootstrap.php";
+$db = getDB();
+$produtoDAO = new ProdutoDAO($db);
+$estoqueDAO = new EstoqueDAO($db);
 $mensagem = "";
 
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
-    // Busca produto e estoque juntos
-    $sql = "SELECT p.*, e.quantidade, e.preco FROM PRODUTO p 
-            JOIN ESTOQUE e ON p.produto_id = e.produto_id WHERE p.produto_id = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->execute([$id]);
-    $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Busca produto e estoque juntos (via DAO)
+    $prod = $produtoDAO->buscarComEstoquePorId($id);
     if (!$prod) die("Produto não encontrado.");
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
         $db->beginTransaction();
-        
+
         // Update Produto
-        $stmtP = $db->prepare("UPDATE PRODUTO SET nome = ?, descricao = ? WHERE produto_id = ?");
-        $stmtP->execute([$_POST['nome'], $_POST['descricao'], $id]);
+        $produtoDAO->atualizar(new Produto($_POST['nome'], $_POST['descricao'], null, $id));
 
         // Update Estoque (Manutenção)
-        $stmtE = $db->prepare("UPDATE ESTOQUE SET quantidade = ?, preco = ? WHERE produto_id = ?");
-        $stmtE->execute([$_POST['qtd'], $_POST['preco'], $id]);
+        $estoqueDAO->atualizarPorProduto($id, $_POST['qtd'], $_POST['preco']);
 
         $db->commit();
         header("Location: produtos.php?msg=sucesso");
