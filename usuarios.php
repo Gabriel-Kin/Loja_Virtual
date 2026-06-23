@@ -9,21 +9,17 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] != 1) {
     exit;
 }
 
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 
-$db = (new Database())->getConnection();
+$usuarioDAO = new UsuarioDAO(getDB());
 $mensagem = "";
 
 // Lógica de Cadastro (Inclusão)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_cadastrar'])) {
     try {
-        $email = $_POST['email'];
-        $senha = $_POST['senha'];
-        $tipo = $_POST['tipo'];
-
-        $sql = "INSERT INTO USUARIO (EMAIL, SENHA, TIPO) VALUES (?, ?, ?)";
-        $stmt = $db->prepare($sql);
-        if ($stmt->execute([$email, $senha, $tipo])) {
+        $senhaHash = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+        $usuario = new Usuario($_POST['email'], $senhaHash, $_POST['tipo']);
+        if ($usuarioDAO->inserir($usuario)) {
             $mensagem = "Usuário cadastrado com sucesso!";
         }
     } catch (Exception $e) {
@@ -33,14 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_cadastrar'])) {
 
 // Lógica de Consulta (Por Nome/Email ou Código)
 $busca = $_GET['search'] ?? "";
-$sqlBusca = "SELECT * FROM USUARIO";
-if ($busca != "") {
-    $sqlBusca .= " WHERE EMAIL ILIKE ? OR CAST(USUARIO_ID AS TEXT) = ?";
-    $stmtLista = $db->prepare($sqlBusca);
-    $stmtLista->execute(["%$busca%", $busca]);
-} else {
-    $stmtLista = $db->query($sqlBusca);
-}
+$listaUsuarios = $usuarioDAO->listar($busca);
 ?>
 
 <!DOCTYPE html>
@@ -51,7 +40,7 @@ if ($busca != "") {
     <title>Gestão de Usuários</title>
 </head>
 <body>
-    <<?php include "header.php"; ?>
+    <?php include "header.php"; ?>
     
     <div class="container">
 
@@ -88,7 +77,7 @@ if ($busca != "") {
                 </tr>
             </thead>
             <tbody>
-                 <?php while($user = $stmtLista->fetch(PDO::FETCH_ASSOC)): ?>
+                 <?php foreach($listaUsuarios as $user): ?>
                   <tr>
                     <td><?= $user['usuario_id'] ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
@@ -109,7 +98,7 @@ if ($busca != "") {
                      </a>
                     </td>
                 </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         </tbody>
         </table>
     </div>

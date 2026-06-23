@@ -3,7 +3,7 @@ session_start();
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 
 // Se já estiver logado, manda para o dashboard
 if (isset($_SESSION['usuario_id'])) {
@@ -14,19 +14,13 @@ if (isset($_SESSION['usuario_id'])) {
 $erro = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $database = new Database();
-    $db = $database->getConnection();
-    
+    $usuarioDAO = new UsuarioDAO(getDB());
+
     $email = $_POST['email'];
     $senha_digitada = $_POST['senha'];
 
-    // 1. Buscamos o usuário apenas pelo e-mail
-    $sql = "SELECT * FROM USUARIO WHERE EMAIL = :email LIMIT 1";
-    $stmt = $db->prepare($sql);
-    $stmt->bindParam(":email", $email);
-    $stmt->execute();
-    
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    // 1. Buscamos o usuário apenas pelo e-mail (via DAO)
+    $user = $usuarioDAO->buscarPorEmail($email);
 
     // 2. Verificamos se o usuário existe E se o hash da senha bate
     // password_verify compara a senha digitada com o hash salvo no banco

@@ -1,77 +1,57 @@
 <?php
 session_start();
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 
 $mensagem = "";
 $tipo_mensagem = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $database = new Database();
-    $db = $database->getConnection();
-    
+    $db = getDB();
+    $enderecoDAO   = new EnderecoDAO($db);
+    $usuarioDAO    = new UsuarioDAO($db);
+    $clienteDAO    = new ClienteDAO($db);
+    $fornecedorDAO = new FornecedorDAO($db);
+
     try {
         $db->beginTransaction();
 
-        // 1. Inserir na tabela ENDERECO
-        $sqlEnd = "INSERT INTO ENDERECO (CIDADE, ESTADO, RUA, NUMERO, COMPLEMENTO, BAIRRO, CEP) 
-                   VALUES (:cidade, :estado, :rua, :numero, :complemento, :bairro, :cep) RETURNING ENDERECO_ID";
-
-        $stmtEnd = $db->prepare($sqlEnd);
-        $stmtEnd->execute([
-            ":cidade"      => $_POST['cidade'],
-            ":estado"      => $_POST['uf'], 
-            ":rua"         => $_POST['rua'],
-            ":numero"      => $_POST['numero'],
-            ":complemento" => $_POST['complemento'] ?? null,
-            ":bairro"      => $_POST['bairro'],
-            ":cep"         => $_POST['cep']
+        // 1. Endereço
+        $endereco = new Endereco([
+            'cidade'      => $_POST['cidade'],
+            'estado'      => $_POST['uf'],
+            'rua'         => $_POST['rua'],
+            'numero'      => $_POST['numero'],
+            'complemento' => $_POST['complemento'] ?? null,
+            'bairro'      => $_POST['bairro'],
+            'cep'         => $_POST['cep']
         ]);
-        
-        $rowEnd = $stmtEnd->fetch(PDO::FETCH_ASSOC);
-        $endereco_id = $rowEnd['endereco_id'] ?? $rowEnd['ENDERECO_ID'];
+        $endereco_id = $enderecoDAO->inserir($endereco);
 
-        // 2. Inserir na tabela USUARIO
-        // Antes de inserir no banco, transformamos a senha em Hash
-        $senha_plana = $_POST['senha'];
-        $senha_hash = password_hash($senha_plana, PASSWORD_DEFAULT);
-
-        $sqlUser = "INSERT INTO USUARIO (EMAIL, SENHA, TIPO) 
-                    VALUES (:email, :senha, :tipo) RETURNING usuario_id";
-        $stmtUser = $db->prepare($sqlUser);
-        $stmtUser->execute([
-            ":email" => $_POST['email'],
-            ":senha" => $senha_hash,
-            ":tipo"  => $_POST['tipo'] // Receberá 2 ou 3
-        ]);
-        
-        $rowUser = $stmtUser->fetch(PDO::FETCH_ASSOC);
-        $usuario_id = $rowUser['usuario_id'] ?? $rowUser['USUARIO_ID'];
+        // 2. Usuário (senha protegida com hash)
+        $senha_hash = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+        $usuario_id = $usuarioDAO->inserir(
+            new Usuario($_POST['email'], $senha_hash, $_POST['tipo']) // tipo 2 ou 3
+        );
 
         // 3. Inserir na tabela específica baseada no tipo (2 = Cliente, 3 = Fornecedor)
-        if ($_POST['tipo'] == 2) { 
+        if ($_POST['tipo'] == 2) {
             // CLIENTE
-            $sqlCli = "INSERT INTO CLIENTE (USUARIO_ID, ENDERECO_ID, NOME, TELEFONE, CARTAO_CREDITO) 
-                       VALUES (:uid, :eid, :nome, :tel, :cartao)";
-            $stmtCli = $db->prepare($sqlCli);
-            $stmtCli->execute([
-                ":uid"    => $usuario_id,
-                ":eid"    => $endereco_id,
-                ":nome"   => $_POST['nome_cliente'] ?? '',
-                ":tel"    => $_POST['telefone_cliente'] ?? '',
-                ":cartao" => $_POST['cartao_credito'] ?? ''
-            ]);  
-        } else if ($_POST['tipo'] == 3) { 
+            $clienteDAO->inserir(new Cliente([
+                'usuario_id'     => $usuario_id,
+                'endereco_id'    => $endereco_id,
+                'nome'           => $_POST['nome_cliente'] ?? '',
+                'telefone'       => $_POST['telefone_cliente'] ?? '',
+                'cartao_credito' => $_POST['cartao_credito'] ?? ''
+            ]));
+        } else if ($_POST['tipo'] == 3) {
             // FORNECEDOR
-            $sqlFor = "INSERT INTO FORNECEDOR (USUARIO_ID, ENDERECO_ID, NOME, DESCRICAO, TELEFONE) 
-                       VALUES (:uid, :eid, :nome, :desc, :tel)";
-            $stmtFor = $db->prepare($sqlFor);
-            $stmtFor->execute([
-                ":uid"  => $usuario_id,
-                ":eid"  => $endereco_id,
-                ":nome" => $_POST['nome_fornecedor'] ?? '',
-                ":desc" => $_POST['descricao_fornecedor'] ?? '',
-                ":tel"  => $_POST['telefone_fornecedor'] ?? ''
-            ]);
+            $fornecedorDAO->inserir(new Fornecedor([
+                'usuario_id'  => $usuario_id,
+                'endereco_id' => $endereco_id,
+                'nome'        => $_POST['nome_fornecedor'] ?? '',
+                'descricao'   => $_POST['descricao_fornecedor'] ?? '',
+                'telefone'    => $_POST['telefone_fornecedor'] ?? ''
+            ]));
         }
 
         $db->commit();

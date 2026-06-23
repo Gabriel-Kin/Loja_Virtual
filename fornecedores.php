@@ -2,18 +2,40 @@
 session_start();
 if (!isset($_SESSION['usuario_id'])) { header("Location: index.php"); exit; }
 
-require_once "config/Database.php";
-require_once "classes/Fornecedor.php";
+require_once "config/bootstrap.php";
 
-$db = (new Database())->getConnection();
-$fornObj = new Fornecedor($db);
+$db = getDB();
+$enderecoDAO   = new EnderecoDAO($db);
+$usuarioDAO    = new UsuarioDAO($db);
+$fornecedorDAO = new FornecedorDAO($db);
 $mensagem = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if ($fornObj->cadastrar($_POST)) {
+    try {
+        $db->beginTransaction();
+
+        // 1. Endereço
+        $enderecoId = $enderecoDAO->inserir(new Endereco($_POST));
+
+        // 2. Usuário (Tipo 3 = Fornecedor) — senha protegida com hash
+        $senhaHash = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+        $usuarioId = $usuarioDAO->inserir(new Usuario($_POST['email'], $senhaHash, 3));
+
+        // 3. Fornecedor vinculado ao usuário e endereço
+        $fornecedor = new Fornecedor([
+            'usuario_id'  => $usuarioId,
+            'endereco_id' => $enderecoId,
+            'nome'        => $_POST['nome'],
+            'descricao'   => $_POST['descricao'],
+            'telefone'    => $_POST['telefone']
+        ]);
+        $fornecedorDAO->inserir($fornecedor);
+
+        $db->commit();
         $mensagem = "Fornecedor cadastrado com sucesso!";
-    } else {
-        $mensagem = "Erro ao cadastrar fornecedor.";
+    } catch (Exception $e) {
+        $db->rollBack();
+        $mensagem = "Erro ao cadastrar fornecedor: " . $e->getMessage();
     }
 }
 ?>
@@ -54,18 +76,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <hr>
         <h2>Fornecedores Registados</h2>
+
+        <?php $busca = $_GET['search'] ?? ""; ?>
+        <form method="GET" style="display:flex; gap:10px; margin-bottom:15px;">
+            <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
+            <button type="submit" class="btn">Consultar</button>
+            <?php if($busca !== ""): ?>
+                <a href="fornecedores.php" class="btn-secondary" style="padding:10px; text-decoration:none;">Limpar</a>
+            <?php endif; ?>
+        </form>
+
         <table>
             <tr>
+                <th>Cód</th>
                 <th>Nome</th>
                 <th>Cidade</th>
                 <th>E-mail</th>
                 <th>Ações</th>
             </tr>
-            <?php 
-            $lista = $fornObj->listarTudo();
-            while($f = $lista->fetch(PDO::FETCH_ASSOC)): 
+            <?php
+            $lista = $fornecedorDAO->consultar($busca);
+            foreach($lista as $f):
             ?>
             <tr>
+               <td><?= $f['fornecedor_id'] ?></td>
                <td><?= htmlspecialchars($f['nome']) ?></td>
                <td><?= htmlspecialchars($f['cidade']) ?></td>
                <td><?= htmlspecialchars($f['email']) ?></td>
@@ -79,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </a>
                 </td>
             </tr>
-           <?php endwhile; ?>
+           <?php endforeach; ?>
         </table>
     </div>
 </body>

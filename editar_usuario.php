@@ -9,18 +9,14 @@ if (!isset($_SESSION['usuario_id']) || $_SESSION['usuario_tipo'] != 1) {
     exit;
 }
 
-require_once "config/Database.php";
-$db = (new Database())->getConnection();
+require_once "config/bootstrap.php";
+$usuarioDAO = new UsuarioDAO(getDB());
 $mensagem = "";
 
 // 1. CARREGAR DADOS ATUAIS
 if (isset($_GET['id'])) {
     $id = $_GET['id'];
-    $sql = "SELECT * FROM USUARIO WHERE USUARIO_ID = :id";
-    $stmt = $db->prepare($sql);
-    $stmt->bindParam(':id', $id);
-    $stmt->execute();
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
+    $usuario = $usuarioDAO->buscarPorId($id);
 
     if (!$usuario) {
         die("Usuário não encontrado.");
@@ -34,13 +30,16 @@ if (isset($_GET['id'])) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_atualizar'])) {
     try {
         $email = $_POST['email'];
-        $senha = $_POST['senha'];
         $tipo = $_POST['tipo'];
 
-        $sqlUpd = "UPDATE USUARIO SET EMAIL = ?, SENHA = ?, TIPO = ? WHERE USUARIO_ID = ?";
-        $stmtUpd = $db->prepare($sqlUpd);
-        
-        if ($stmtUpd->execute([$email, $senha, $tipo, $id])) {
+        // Só re-gera o hash se uma nova senha for informada; senão mantém a atual.
+        if (!empty($_POST['senha'])) {
+            $senha = password_hash($_POST['senha'], PASSWORD_DEFAULT);
+        } else {
+            $senha = $usuario['senha'];
+        }
+
+        if ($usuarioDAO->atualizar(new Usuario($email, $senha, $tipo, $id))) {
             $mensagem = "Usuário atualizado com sucesso!";
             // Atualiza os dados na tela
             $usuario['email'] = $email;
@@ -74,8 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_atualizar'])) {
             <label>E-mail:</label>
             <input type="email" name="email" value="<?= htmlspecialchars($usuario['email']) ?>" required>
             
-            <label>Senha:</label>
-            <input type="text" name="senha" value="<?= htmlspecialchars($usuario['senha']) ?>" required>
+            <label>Senha: <small>(deixe em branco para manter a atual)</small></label>
+            <input type="password" name="senha" placeholder="Nova senha (opcional)">
             
             <label>Tipo de Usuário:</label>
             <select name="tipo">

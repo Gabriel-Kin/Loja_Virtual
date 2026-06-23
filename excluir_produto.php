@@ -1,14 +1,16 @@
 <?php
 session_start();
-require_once "config/Database.php";
+require_once "config/bootstrap.php";
 if (isset($_GET['id'])) {
-    $db = (new Database())->getConnection();
+    $db = getDB();
+    $produtoDAO = new ProdutoDAO($db);
+    $estoqueDAO = new EstoqueDAO($db);
     try {
         $db->beginTransaction();
         // Remove estoque primeiro
-        $db->prepare("DELETE FROM ESTOQUE WHERE produto_id = ?")->execute([$_GET['id']]);
+        $estoqueDAO->excluirPorProduto($_GET['id']);
         // Remove produto
-        $db->prepare("DELETE FROM PRODUTO WHERE produto_id = ?")->execute([$_GET['id']]);
+        $produtoDAO->excluir($_GET['id']);
         $db->commit();
     } catch (Exception $e) { $db->rollBack(); }
 }
