@@ -7,7 +7,15 @@ class PedidoDAO{
         $this->conn = $conn;
     }
 
-    public function consultarPedidos(?int $numero = null, ?string $cliente = null): array{
+    public function consultarPedidos(
+        ?int $id = null,
+        ?int $numero = null,
+        ?string $cliente = null,
+        int $pagina = 1,
+        int $limite = 10
+    ): array {
+        $offset = ($pagina - 1) * $limite;
+
         $sql = "
             SELECT
                 p.PEDIDO_ID,
@@ -30,6 +38,11 @@ class PedidoDAO{
 
         $params = [];
 
+        if ($id !== null) {
+            $sql .= " AND p.PEDIDO_ID = :id";
+            $params[':id'] = $id;
+        }
+
         if ($numero !== null) {
             $sql .= " AND p.PEDIDO_NUMERO = :numero";
             $params[':numero'] = $numero;
@@ -50,15 +63,26 @@ class PedidoDAO{
                 c.NOME,
                 ps.DESCRICAO
             ORDER BY p.DATA_PEDIDO DESC
+            LIMIT :limite
+            OFFSET :offset
         ";
 
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute($params);
+
+        foreach ($params as $param => $value) {
+            $stmt->bindValue($param, $value);
+        }
+
+        $stmt->bindValue(':limite', $limite, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+
+        $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function consultarItensPedido(int $pedidoId): array{
+    public function consultarItensPedido(int $pedidoId): array
+    {
         $sql = "
             SELECT
                 ip.ITEM_PEDIDO_ID,
@@ -83,5 +107,42 @@ class PedidoDAO{
         ]);
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function contarPedidos(
+        ?int $id = null,
+        ?int $numero = null,
+        ?string $cliente = null
+    ): int {
+        $sql = "
+            SELECT
+                COUNT(p.PEDIDO_ID) AS TOTAL
+            FROM PEDIDO p
+            JOIN CLIENTE c
+                ON c.CLIENTE_ID = p.CLIENTE_ID
+            WHERE 1 = 1
+        ";
+
+        $params = [];
+
+        if ($id !== null) {
+            $sql .= " AND p.PEDIDO_ID = :id";
+            $params[':id'] = $id;
+        }
+
+        if ($numero !== null) {
+            $sql .= " AND p.PEDIDO_NUMERO = :numero";
+            $params[':numero'] = $numero;
+        }
+
+        if ($cliente !== null && $cliente !== '') {
+            $sql .= " AND c.NOME ILIKE :cliente";
+            $params[':cliente'] = '%' . $cliente . '%';
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+
+        return (int) $stmt->fetchColumn();
     }
 }
