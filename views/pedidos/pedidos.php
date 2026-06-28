@@ -12,6 +12,42 @@ $pedidoDAO = new PedidoDAO($db);
 $usuarioTipo = (int) ($_SESSION['usuario_tipo'] ?? 0);
 $usuarioClienteId = $usuarioTipo === 2 ? (int) $_SESSION['usuario_id'] : null;
 
+// Admin (1) e Fornecedor (3) podem gerenciar o status dos pedidos (US06).
+$podeGerenciar = in_array($usuarioTipo, [1, 3], true);
+
+// Mudança de status do pedido (US06): ENTREGUE ou CANCELADO, gravando a data.
+// Padrão PRG (Post/Redirect/Get): processa e redireciona para evitar reenvio.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'mudar_status') {
+    $idAlvo     = ctype_digit($_POST['pedido_id'] ?? '') ? (int) $_POST['pedido_id'] : 0;
+    $novoStatus = $_POST['situacao'] ?? '';
+
+    if (!$podeGerenciar) {
+        $statusMsg = 'sem_permissao';
+    } elseif ($idAlvo <= 0 || !in_array($novoStatus, ['ENTREGUE', 'CANCELADO'], true)) {
+        $statusMsg = 'invalido';
+    } else {
+        try {
+            $pedidoDAO->atualizarSituacao($idAlvo, $novoStatus);
+            $statusMsg = 'ok';
+        } catch (Throwable $e) {
+            $statusMsg = 'erro';
+        }
+    }
+
+    header("Location: " . BASE_URL . "/views/pedidos/pedidos.php?id=$idAlvo&status_msg=$statusMsg");
+    exit;
+}
+
+// Aviso resultante da ação de status (lido após o redirect).
+$statusBanner = "";
+$statusBannerClasse = "";
+switch ($_GET['status_msg'] ?? '') {
+    case 'ok':            $statusBanner = "Situação do pedido atualizada.";                      $statusBannerClasse = "pedido-msg-ok";   break;
+    case 'sem_permissao': $statusBanner = "Você não tem permissão para alterar o status.";       $statusBannerClasse = "pedido-msg-erro"; break;
+    case 'invalido':      $statusBanner = "Ação inválida.";                                       $statusBannerClasse = "pedido-msg-erro"; break;
+    case 'erro':          $statusBanner = "Não foi possível atualizar o status do pedido.";       $statusBannerClasse = "pedido-msg-erro"; break;
+}
+
 $pedidoId = null;
 if (isset($_GET['id']) && ctype_digit($_GET['id']) && (int) $_GET['id'] > 0) {
     $pedidoId = (int) $_GET['id'];
@@ -29,12 +65,26 @@ if ($busca !== "") {
     }
 }
 
+// Paginação da tabela de pedidos (mesmo padrão de 10 por página).
+$porPaginaTabela = 10;
+$paginaTabela = (isset($_GET['pagina']) && ctype_digit($_GET['pagina']) && (int) $_GET['pagina'] > 0)
+    ? (int) $_GET['pagina']
+    : 1;
+
+$numeroFiltro = $buscaNumero !== "" && ctype_digit($buscaNumero) ? (int) $buscaNumero : null;
+
+$totalPedidos = $pedidoDAO->contarPedidos(null, $numeroFiltro, $buscaCliente, $usuarioClienteId);
+$totalPaginasTabela = $totalPedidos > 0 ? (int) ceil($totalPedidos / $porPaginaTabela) : 1;
+if ($paginaTabela > $totalPaginasTabela) {
+    $paginaTabela = $totalPaginasTabela;
+}
+
 $pedidos = $pedidoDAO->consultarPedidos(
     null,
-    $buscaNumero !== "" && ctype_digit($buscaNumero) ? (int) $buscaNumero : null,
+    $numeroFiltro,
     $buscaCliente,
-    1,
-    50,
+    $paginaTabela,
+    $porPaginaTabela,
     $usuarioClienteId
 );
 
@@ -50,6 +100,22 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
 
     if ($busca !== "") {
         $params['busca'] = $busca;
+    }
+
+    return BASE_URL . "/views/pedidos/pedidos.php?" . http_build_query($params);
+}
+
+/** Monta o link de uma página da tabela, preservando busca e pedido aberto. */
+function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
+{
+    $params = ['pagina' => $pagina];
+
+    if ($busca !== "") {
+        $params['busca'] = $busca;
+    }
+
+    if ($pedidoId !== null) {
+        $params['id'] = $pedidoId;
     }
 
     return BASE_URL . "/views/pedidos/pedidos.php?" . http_build_query($params);
@@ -183,12 +249,12 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
         <table>
             <thead>
                 <tr>
-                    <th>Nro</th>
+                    <th>Nº</th>
                     <th>Data</th>
                     <th>Cliente</th>
-                    <th>Situacao</th>
+                    <th>Situação</th>
                     <th>Valor Total</th>
-                    <th>Acoes</th>
+                    <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -198,7 +264,11 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
                         <td><?= htmlspecialchars($item['pedido_numero']) ?></td>
                         <td><?= date('d/m/Y', strtotime($item['data_pedido'])) ?></td>
                         <td><?= htmlspecialchars($item['cliente_nome']) ?></td>
-                        <td><?= htmlspecialchars($item['situacao']) ?></td>
+                        <td>
+                            <span class="pedido-status pedido-status-<?= strtolower($item['situacao']) ?>">
+                                <?= htmlspecialchars($item['situacao']) ?>
+                            </span>
+                        </td>
                         <td>R$ <?= number_format((float) $item['valor_total'], 2, ',', '.') ?></td>
                         <td style="white-space: nowrap;">
                             <a href="<?= linkDetalhesPedido((int) $item['pedido_id'], $busca) ?>" class="btn-edit">
@@ -216,6 +286,24 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
             </tbody>
         </table>
 
+        <?php if ($totalPaginasTabela > 1): ?>
+            <div class="paginacao">
+                <?php if ($paginaTabela > 1): ?>
+                    <a class="btn btn-secundario" href="<?= linkPaginaPedidos($paginaTabela - 1, $busca, $pedidoId) ?>">Anterior</a>
+                <?php else: ?>
+                    <button class="btn btn-secundario" disabled>Anterior</button>
+                <?php endif; ?>
+
+                <span>Página <?= $paginaTabela ?> de <?= $totalPaginasTabela ?></span>
+
+                <?php if ($paginaTabela < $totalPaginasTabela): ?>
+                    <a class="btn btn-secundario" href="<?= linkPaginaPedidos($paginaTabela + 1, $busca, $pedidoId) ?>">Próxima</a>
+                <?php else: ?>
+                    <button class="btn btn-secundario" disabled>Próxima</button>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+
         <hr>
 
         <section class="pedido-detalhe-abaixo">
@@ -226,6 +314,10 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
                 </div>
             <?php else: ?>
                 <h2>Detalhes do Pedido #<?= htmlspecialchars($pedido['pedido_numero']) ?></h2>
+
+                <?php if ($statusBanner): ?>
+                    <div class="pedido-msg <?= $statusBannerClasse ?>"><?= $statusBanner ?></div>
+                <?php endif; ?>
 
                 <div class="pedido-master-card">
                     <div>
@@ -241,7 +333,7 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
                         <strong><?= htmlspecialchars($pedido['cliente_nome']) ?></strong>
                     </div>
                     <div>
-                        <span class="pedido-label">Situacao</span>
+                        <span class="pedido-label">Situação</span>
                         <strong class="pedido-status pedido-status-<?= strtolower($pedido['situacao']) ?>">
                             <?= htmlspecialchars($pedido['situacao']) ?>
                         </strong>
@@ -251,6 +343,33 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
                         <strong>R$ <?= number_format((float) $pedido['valor_total'], 2, ',', '.') ?></strong>
                     </div>
                 </div>
+
+                <?php if (!empty($pedido['data_entrega'])): ?>
+                    <p class="pedido-data-acao">Entregue em <?= date('d/m/Y', strtotime($pedido['data_entrega'])) ?>.</p>
+                <?php elseif (!empty($pedido['data_cancelamento'])): ?>
+                    <p class="pedido-data-acao">Cancelado em <?= date('d/m/Y', strtotime($pedido['data_cancelamento'])) ?>.</p>
+                <?php endif; ?>
+
+                <?php if ($podeGerenciar && strtoupper($pedido['situacao']) === 'NOVO'): ?>
+                    <div class="pedido-acoes">
+                        <form method="POST" style="display:inline">
+                            <input type="hidden" name="acao" value="mudar_status">
+                            <input type="hidden" name="pedido_id" value="<?= (int) $pedido['pedido_id'] ?>">
+                            <input type="hidden" name="situacao" value="ENTREGUE">
+                            <button type="submit" class="btn btn-entregue">
+                                <i class="fa-solid fa-check"></i> Marcar como ENTREGUE
+                            </button>
+                        </form>
+                        <form method="POST" style="display:inline" onsubmit="return confirm('Cancelar este pedido?');">
+                            <input type="hidden" name="acao" value="mudar_status">
+                            <input type="hidden" name="pedido_id" value="<?= (int) $pedido['pedido_id'] ?>">
+                            <input type="hidden" name="situacao" value="CANCELADO">
+                            <button type="submit" class="btn btn-cancelar">
+                                <i class="fa-solid fa-xmark"></i> Cancelar pedido
+                            </button>
+                        </form>
+                    </div>
+                <?php endif; ?>
 
                 <div class="pedido-carrossel">
                     <div id="carousel-stage" class="carousel-stage">
@@ -275,6 +394,11 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
                     <p class="pedido-vazio">Carregando itens...</p>
                 </div>
                 <div id="pedido-paginacao" class="paginacao"></div>
+
+                <div class="pedido-itens-total">
+                    <span>Total do pedido</span>
+                    <strong>R$ <?= number_format((float) $pedido['valor_total'], 2, ',', '.') ?></strong>
+                </div>
             <?php endif; ?>
         </section>
     </div>

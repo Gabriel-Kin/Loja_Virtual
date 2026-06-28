@@ -61,36 +61,26 @@ $lista = $clienteDAO->consultar($busca);
     <?php include ROOT_PATH . "/views/layouts/header.php"; ?>
 
     <div class="container">
-        <h2>Cadastrar Cliente</h2>
-        <?php if($mensagem) echo "<p style='color:blue'>$mensagem</p>"; ?>
 
-        <form method="POST">
-            <h3>Dados Gerais</h3>
-            <input type="text" name="nome" placeholder="Nome Completo" required>
-            <input type="email" name="email" placeholder="E-mail (Login)" required>
-            <input type="password" name="senha" placeholder="Senha" required>
-            <input type="text" name="telefone" placeholder="Telefone">
-            <input type="text" name="cartao_credito" placeholder="Cartão de Crédito">
+        <div class="lista-toolbar">
+            <h2>Clientes</h2>
+            <button type="button" class="btn" onclick="abrirModal()">
+                <i class="fa-solid fa-plus"></i> Novo Cliente
+            </button>
+        </div>
 
-            <h3>Endereço</h3>
-            <input type="text" name="rua" placeholder="Rua" required>
-            <input type="text" name="numero" placeholder="Número" style="width: 20%;">
-            <input type="text" name="bairro" placeholder="Bairro" style="width: 78%;">
-            <input type="text" name="cidade" placeholder="Cidade" required>
-            <input type="text" name="estado" placeholder="Estado (UF)" maxlength="2">
-            <input type="text" name="cep" placeholder="CEP">
+        <?php if ($mensagem): ?>
+            <div class="lista-msg"><?= htmlspecialchars($mensagem) ?></div>
+        <?php endif; ?>
 
-            <button type="submit" name="bt_cadastrar" class="btn">Salvar Cliente</button>
-        </form>
-
-        <hr>
-        <h2>Clientes Registados</h2>
-
-        <form method="GET" style="display:flex; gap:10px; margin-bottom:15px;">
-            <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
-            <button type="submit" class="btn">Consultar</button>
-            <?php if($busca !== ""): ?>
-                <a href="<?= BASE_URL ?>/views/clientes/clientes.php" class="btn-secondary" style="padding:10px; text-decoration:none;">Limpar</a>
+        <form method="GET" class="lista-busca">
+            <div class="busca-campo">
+                <i class="fa-solid fa-magnifying-glass busca-icone"></i>
+                <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
+            </div>
+            <button type="submit" class="btn">Buscar</button>
+            <?php if ($busca !== ""): ?>
+                <a href="<?= BASE_URL ?>/views/clientes/clientes.php" class="btn btn-secundario" style="text-decoration:none;">Limpar</a>
             <?php endif; ?>
         </form>
 
@@ -102,7 +92,7 @@ $lista = $clienteDAO->consultar($busca);
                     <th>Cidade</th>
                     <th>E-mail</th>
                     <th>Telefone</th>
-                    <th>Ações</th>
+                    <th style="width:60px; text-align:center;">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -113,19 +103,84 @@ $lista = $clienteDAO->consultar($busca);
                     <td><?= htmlspecialchars($c['cidade']) ?></td>
                     <td><?= htmlspecialchars($c['email']) ?></td>
                     <td><?= htmlspecialchars($c['telefone']) ?></td>
-                    <td style="white-space: nowrap;">
-                        <a href="<?= BASE_URL ?>/views/clientes/editar_cliente.php?id=<?= $c['cliente_id'] ?>" class="btn-edit">Editar</a>
-                        <a href="<?= BASE_URL ?>/views/clientes/excluir_cliente.php?id=<?= $c['cliente_id'] ?>"
-                           class="btn-del"
-                           onclick="return confirm('Deseja realmente remover este cliente?')">Remover</a>
+                    <td style="text-align:center;">
+                        <div class="kebab-wrap">
+                            <button type="button" class="kebab-btn" onclick="alternarKebab(this)" aria-label="Ações" aria-haspopup="true">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="kebab-menu">
+                                <a href="<?= BASE_URL ?>/views/clientes/editar_cliente.php?id=<?= $c['cliente_id'] ?>">
+                                    <i class="fa-solid fa-pen"></i> Editar
+                                </a>
+                                <a href="<?= BASE_URL ?>/views/clientes/excluir_cliente.php?id=<?= $c['cliente_id'] ?>"
+                                   class="kebab-item-perigo"
+                                   onclick="return confirm('Deseja realmente remover este cliente?')">
+                                    <i class="fa-solid fa-trash"></i> Remover
+                                </a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>
-                <?php if(count($lista) == 0): ?>
-                <tr><td colspan="6">Nenhum cliente encontrado.</td></tr>
+
+                <?php if (count($lista) === 0): ?>
+                <tr><td colspan="6" style="text-align:center;">Nenhum cliente encontrado.</td></tr>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
+
+    <!-- Modal: novo cliente -->
+    <div id="modal-novo-cliente" class="modal-overlay" onclick="if (event.target === this) fecharModal()">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3>Novo Cliente</h3>
+                <button type="button" class="modal-close" onclick="fecharModal()" aria-label="Fechar">&times;</button>
+            </div>
+            <form method="POST">
+                <h4 style="margin:6px 0;">Dados Gerais</h4>
+                <input type="text" name="nome" placeholder="Nome Completo" required>
+                <input type="email" name="email" placeholder="E-mail (Login)" required>
+                <input type="password" name="senha" placeholder="Senha" required>
+                <input type="text" name="telefone" placeholder="Telefone">
+                <input type="text" name="cartao_credito" placeholder="Cartão de Crédito">
+
+                <h4 style="margin:6px 0;">Endereço</h4>
+                <input type="text" name="rua" placeholder="Rua" required>
+                <input type="text" name="numero" placeholder="Número" style="width: 20%;">
+                <input type="text" name="bairro" placeholder="Bairro" style="width: 78%;">
+                <input type="text" name="cidade" placeholder="Cidade" required>
+                <input type="text" name="estado" placeholder="Estado (UF)" maxlength="2">
+                <input type="text" name="cep" placeholder="CEP">
+
+                <button type="submit" name="bt_cadastrar" class="btn" style="width:100%; margin-top:8px;">Salvar Cliente</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Modal de novo cliente
+        function abrirModal() { document.getElementById("modal-novo-cliente").classList.add("aberto"); }
+        function fecharModal() { document.getElementById("modal-novo-cliente").classList.remove("aberto"); }
+
+        // Menu de ações (três pontinhos)
+        function alternarKebab(btn) {
+            const menu = btn.nextElementSibling;
+            const estavaAberto = menu.classList.contains("aberto");
+            fecharTodosKebabs();
+            if (!estavaAberto) menu.classList.add("aberto");
+        }
+        function fecharTodosKebabs() {
+            document.querySelectorAll(".kebab-menu.aberto").forEach(function (m) {
+                m.classList.remove("aberto");
+            });
+        }
+        document.addEventListener("click", function (e) {
+            if (!e.target.closest(".kebab-wrap")) fecharTodosKebabs();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") { fecharModal(); fecharTodosKebabs(); }
+        });
+    </script>
 </body>
 </html>
