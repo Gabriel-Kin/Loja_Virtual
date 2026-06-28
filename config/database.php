@@ -4,7 +4,7 @@ class Database {
     private $port = "5432";
     private $db_name = "trabalho_1";
     private $username = "postgres";
-    private $password = "postgres";
+    private $password = "lfvb3112";
     public $conn; 
 
     public function getConnection() {

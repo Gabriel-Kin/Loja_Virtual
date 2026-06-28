@@ -5,35 +5,46 @@ require_once __DIR__ . "/../config/bootstrap.php";
 $db = getDB();
 $produtoDAO = new ProdutoDAO($db);
 
-// Busca os produtos para exibir na vitrine
+// Busca os produtos para exibir na vitrine (com o Join da imagem já incluso no DAO)
 $listaProdutos = $produtoDAO->consultar("");
 ?>
 
 <!DOCTYPE html>
 <html lang="pt-br">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minha Loja Virtual</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css?v=<?= filemtime(ROOT_PATH . '/css/style.css') ?>">
 </head>
+
 <body>
 
     <?php include ROOT_PATH . "/views/layouts/header.php"; ?>
-    
+
     <main class="container loja-home">
         <h2>Confira nossos produtos</h2>
         <hr>
-        
+
         <div class="vitrine">
-            <?php foreach($listaProdutos as $p): ?>
+            <?php foreach ($listaProdutos as $p): ?>
                 <div class="produto-card">
-                    <div style="background:#f0f0f0; height:150px; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#ccc;">
-                        [Sem Imagem]
+                    <div style="background:#f9f9f9; height:150px; border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden; border: 1px solid #eee;">
+                        <?php if (!empty($p['imagem_caminho'])): ?>
+                            <img src="<?= BASE_URL . $p['imagem_caminho'] ?>" alt="<?= htmlspecialchars($p['nome']) ?>" style="width:100%; height:100%; object-fit:cover;">
+                        <?php else: ?>
+                            <div style="color:#ccc; display:flex; flex-direction:column; align-items:center; gap:8px;">
+                                <i class="fa-solid fa-image" style="font-size:32px;"></i>
+                                <span style="font-size:12px;">Sem imagem</span>
+                            </div>
+                        <?php endif; ?>
                     </div>
+
                     <h3><?= htmlspecialchars($p['nome']) ?></h3>
                     <p class="fornecedor-tag">Fornecedor: <?= htmlspecialchars($p['fornecedor_nome']) ?></p>
                     <p class="preco">R$ <?= number_format($p['preco'], 2, ',', '.') ?></p>
+
                     <?php $semEstoque = (int)$p['quantidade'] <= 0; ?>
                     <?php if ($semEstoque): ?>
                         <button class="btn" style="width:100%" disabled>Indisponível</button>
@@ -43,13 +54,12 @@ $listaProdutos = $produtoDAO->consultar("");
                 </div>
             <?php endforeach; ?>
 
-            <?php if(count($listaProdutos) == 0): ?>
+            <?php if (count($listaProdutos) == 0): ?>
                 <p>Nenhum produto cadastrado no momento.</p>
             <?php endif; ?>
         </div>
     </main>
 
-    <!-- Aviso (toast) de feedback ao adicionar ao carrinho -->
     <div id="toast" class="toast" style="display:none;"></div>
 
     <script>
@@ -62,7 +72,9 @@ $listaProdutos = $produtoDAO->consultar("");
             toast.classList.toggle("toast-erro", !sucesso);
             toast.style.display = "block";
             clearTimeout(toast._timer);
-            toast._timer = setTimeout(() => { toast.style.display = "none"; }, 3000);
+            toast._timer = setTimeout(() => {
+                toast.style.display = "none";
+            }, 3000);
         }
 
         function atualizarBadgeHeader(quantidade) {
@@ -76,8 +88,14 @@ $listaProdutos = $produtoDAO->consultar("");
             try {
                 const resposta = await fetch(AJAX_URL, {
                     method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: new URLSearchParams({ acao: "adicionar", produto_id: produtoId, quantidade: 1 }).toString()
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        acao: "adicionar",
+                        produto_id: produtoId,
+                        quantidade: 1
+                    }).toString()
                 });
                 const dados = await resposta.json();
                 if (dados.carrinho) atualizarBadgeHeader(dados.carrinho.quantidade_total);
@@ -89,4 +107,5 @@ $listaProdutos = $produtoDAO->consultar("");
     </script>
 
 </body>
+
 </html>
