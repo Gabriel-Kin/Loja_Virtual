@@ -16,7 +16,6 @@ $usuarioClienteId = $usuarioTipo === 2 ? (int) $_SESSION['usuario_id'] : null;
 $podeGerenciar = in_array($usuarioTipo, [1, 3], true);
 
 // Mudança de status do pedido (US06): ENTREGUE ou CANCELADO, gravando a data.
-// Padrão PRG (Post/Redirect/Get): processa e redireciona para evitar reenvio.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'mudar_status') {
     $idAlvo     = ctype_digit($_POST['pedido_id'] ?? '') ? (int) $_POST['pedido_id'] : 0;
     $novoStatus = $_POST['situacao'] ?? '';
@@ -42,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'mudar_s
 $statusBanner = "";
 $statusBannerClasse = "";
 switch ($_GET['status_msg'] ?? '') {
-    case 'ok':            $statusBanner = "Situação do pedido atualizada.";                      $statusBannerClasse = "pedido-msg-ok";   break;
+    case 'ok':            $statusBanner = "Situação do pedido updated.";                              $statusBannerClasse = "pedido-msg-ok";   break;
     case 'sem_permissao': $statusBanner = "Você não tem permissão para alterar o status.";       $statusBannerClasse = "pedido-msg-erro"; break;
     case 'invalido':      $statusBanner = "Ação inválida.";                                       $statusBannerClasse = "pedido-msg-erro"; break;
     case 'erro':          $statusBanner = "Não foi possível atualizar o status do pedido.";       $statusBannerClasse = "pedido-msg-erro"; break;
@@ -65,7 +64,7 @@ if ($busca !== "") {
     }
 }
 
-// Paginação da tabela de pedidos (mesmo padrão de 10 por página).
+// Paginação da tabela de pedidos
 $porPaginaTabela = 10;
 $paginaTabela = (isset($_GET['pagina']) && ctype_digit($_GET['pagina']) && (int) $_GET['pagina'] > 0)
     ? (int) $_GET['pagina']
@@ -105,7 +104,6 @@ function linkDetalhesPedido(int $pedidoId, string $busca): string
     return BASE_URL . "/views/pedidos/pedidos.php?" . http_build_query($params);
 }
 
-/** Monta o link de uma página da tabela, preservando busca e pedido aberto. */
 function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
 {
     $params = ['pagina' => $pagina];
@@ -130,108 +128,21 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
     <title>Consulta de Pedidos - TechStore</title>
     <link rel="stylesheet" href="<?= BASE_URL ?>/css/style.css?v=<?= filemtime(ROOT_PATH . '/css/style.css') ?>">
     <style>
-        .pedido-detalhe-abaixo .pedido-itens {
-            display: grid;
-            gap: 18px;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item {
-            display: grid;
-            grid-template-columns: 220px minmax(0, 1fr) minmax(190px, auto);
-            gap: 24px;
-            align-items: stretch;
-            min-height: 220px;
-            padding: 0 24px 0 0;
-            border: 1px solid #e6e6e6;
-            border-radius: 8px;
-            background: #fff;
-            overflow: hidden;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-foto {
-            width: 220px;
-            height: 220px;
-            min-height: 220px;
-            border-right: 1px solid #eee;
-            background: #fff;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-foto img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-sem-foto {
-            width: 100%;
-            height: 100%;
-            min-height: 220px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 18px;
-            color: #777;
-            text-align: center;
-            overflow-wrap: anywhere;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-texto,
-        .pedido-detalhe-abaixo .pedido-item-valores {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 10px;
-            min-width: 0;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-valores {
-            align-items: flex-end;
-            text-align: right;
-            justify-self: end;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-nome {
-            font-size: 18px;
-            color: #333;
-        }
-
-        .pedido-detalhe-abaixo .pedido-item-descricao {
-            margin: 0;
-            color: #666;
-        }
-
+        .pedido-detalhe-abaixo .pedido-itens { display: grid; gap: 18px; }
+        .pedido-detalhe-abaixo .pedido-item { display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(190px, auto); gap: 24px; align-items: stretch; min-height: 220px; padding: 0 24px 0 0; border: 1px solid #e6e6e6; border-radius: 8px; background: #fff; overflow: hidden; }
+        .pedido-detalhe-abaixo .pedido-item-foto { width: 220px; height: 220px; min-height: 220px; border-right: 1px solid #eee; background: #fff; }
+        .pedido-detalhe-abaixo .pedido-item-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .pedido-detalhe-abaixo .pedido-item-sem-foto { width: 100%; height: 100%; min-height: 220px; display: flex; align-items: center; justify-content: center; padding: 18px; color: #777; text-align: center; overflow-wrap: anywhere; }
+        .pedido-detalhe-abaixo .pedido-item-texto, .pedido-detalhe-abaixo .pedido-item-valores { display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 0; }
+        .pedido-detalhe-abaixo .pedido-item-valores { align-items: flex-end; text-align: right; justify-self: end; }
+        .pedido-detalhe-abaixo .pedido-item-nome { font-size: 18px; color: #333; }
+        .pedido-detalhe-abaixo .pedido-item-descricao { margin: 0; color: #666; }
         @media (max-width: 768px) {
-            .pedido-detalhe-abaixo .pedido-item {
-                grid-template-columns: 120px minmax(0, 1fr);
-                gap: 14px;
-                min-height: 120px;
-                padding: 0 14px 0 0;
-            }
-
-            .pedido-detalhe-abaixo .pedido-item-foto {
-                width: 120px;
-                height: 120px;
-                min-height: 120px;
-            }
-
-            .pedido-detalhe-abaixo .pedido-item-sem-foto {
-                min-height: 120px;
-                font-size: 12px;
-            }
-
-            .pedido-detalhe-abaixo .pedido-item-texto {
-                padding-top: 12px;
-            }
-
-            .pedido-detalhe-abaixo .pedido-item-valores {
-                grid-column: 2;
-                align-items: flex-start;
-                justify-content: flex-start;
-                text-align: left;
-                padding-bottom: 12px;
-                gap: 6px;
-            }
+            .pedido-detalhe-abaixo .pedido-item { grid-template-columns: 120px minmax(0, 1fr); gap: 14px; min-height: 120px; padding: 0 14px 0 0; }
+            .pedido-detalhe-abaixo .pedido-item-foto { width: 120px; height: 120px; min-height: 120px; }
+            .pedido-detalhe-abaixo .pedido-item-sem-foto { min-height: 120px; font-size: 12px; }
+            .pedido-detalhe-abaixo .pedido-item-texto { padding-top: 12px; }
+            .pedido-detalhe-abaixo .pedido-item-valores { grid-column: 2; align-items: flex-start; justify-content: flex-start; text-align: left; padding-bottom: 12px; gap: 6px; }
         }
     </style>
 </head>
@@ -422,13 +333,6 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
                 });
             }
 
-            function mimeImagem(base64) {
-                if (base64.startsWith("/9j/")) return "image/jpeg";
-                if (base64.startsWith("iVBOR")) return "image/png";
-                if (base64.startsWith("R0lGOD")) return "image/gif";
-                return "image/jpeg";
-            }
-
             function formatarBRL(valor) {
                 return "R$ " + Number(valor).toLocaleString("pt-BR", {
                     minimumFractionDigits: 2,
@@ -436,16 +340,18 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
                 });
             }
 
+            // ADJUSTED: Agora renderiza caminhos de string nativos diretos do servidor
             function fotoHtml(item) {
-                if (item.foto_base64) {
-                    return '<img src="data:' + mimeImagem(item.foto_base64) + ';base64,' + item.foto_base64 + '" alt="' + escaparHtml(item.produto_nome) + '">';
+                if (item.foto) {
+                    return '<img src="' + item.foto + '" alt="' + escaparHtml(item.produto_nome) + '">';
                 }
                 return '<div class="pedido-foto-placeholder"><i class="fa-regular fa-image"></i><span>' + escaparHtml(item.produto_nome) + '</span></div>';
             }
 
+            // ADJUSTED: Agora renderiza caminhos de string nativos diretos do servidor
             function fotoItemHtml(item) {
-                if (item.foto_base64) {
-                    return '<img src="data:' + mimeImagem(item.foto_base64) + ';base64,' + item.foto_base64 + '" alt="' + escaparHtml(item.produto_nome) + '">';
+                if (item.foto) {
+                    return '<img src="' + item.foto + '" alt="' + escaparHtml(item.produto_nome) + '">';
                 }
                 return '<div class="pedido-item-sem-foto">' + escaparHtml(item.produto_nome) + '</div>';
             }
@@ -454,7 +360,7 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
                 const stage = document.getElementById("carousel-stage");
                 const dots = document.getElementById("carousel-dots");
 
-                if (!fotos.length) {
+                if (!fotos.length || (fotos.length === 1 && !fotos[0].foto)) {
                     stage.innerHTML = '<div class="pedido-foto-placeholder">Sem fotos para exibir.</div>';
                     dots.innerHTML = "";
                     return;
@@ -498,7 +404,7 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
                         '</div>' +
                         '<div class="pedido-item-valores">' +
                             '<span class="pedido-item-qtd">Quantidade: ' + item.quantidade + '</span>' +
-                            '<span class="pedido-item-preco">Preco Unitário: ' + formatarBRL(item.valor_unitario) + '</span>' +
+                            '<span class="pedido-item-preco">Preço Unitário: ' + formatarBRL(item.valor_unitario) + '</span>' +
                             '<strong class="pedido-item-total">Total: ' + formatarBRL(item.valor_total_item) + '</strong>' +
                         '</div>' +
                     '</article>';
@@ -508,8 +414,8 @@ function linkPaginaPedidos(int $pagina, string $busca, ?int $pedidoId): string
                 info.textContent = totalItens === 1 ? "1 Item" : totalItens + " Itens";
                 paginacao.innerHTML =
                     '<button class="btn btn-secundario" ' + (dados.paginacao.pagina <= 1 ? 'disabled' : '') + ' onclick="carregarItens(' + (dados.paginacao.pagina - 1) + ')">Anterior</button>' +
-                    '<span>Pagina ' + dados.paginacao.pagina + ' de ' + dados.paginacao.total_paginas + '</span>' +
-                    '<button class="btn btn-secundario" ' + (dados.paginacao.pagina >= dados.paginacao.total_paginas ? 'disabled' : '') + ' onclick="carregarItens(' + (dados.paginacao.pagina + 1) + ')">Proxima</button>';
+                    '<span>Página ' + dados.paginacao.pagina + ' de ' + dados.paginacao.total_paginas + '</span>' +
+                    '<button class="btn btn-secundario" ' + (dados.paginacao.pagina >= dados.paginacao.total_paginas ? 'disabled' : '') + ' onclick="carregarItens(' + (dados.paginacao.pagina + 1) + ')">Próxima</button>';
             }
 
             async function carregarItens(pagina) {

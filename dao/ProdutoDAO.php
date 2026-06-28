@@ -7,15 +7,31 @@ class ProdutoDAO {
         $this->conn = $db;
     }
 
-    /** Insere um Produto e retorna o ID gerado. */
-    public function inserir(Produto $produto) {
+    /** Insere um Produto e sua lista de imagens, retornando o ID gerado. */
+    public function inserir(Produto $produto, array $listaImagens = []) {
+        // 1. Insere o produto
         $sql = "INSERT INTO PRODUTO (NOME, DESCRICAO, FORNECEDOR_ID)
                 VALUES (?, ?, ?) RETURNING PRODUTO_ID";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([$produto->nome, $produto->descricao, $produto->fornecedor_id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         if (!$row) throw new Exception("Falha ao obter ID do Produto.");
-        return $row['produto_id'] ?? $row['PRODUTO_ID'];
+        
+        $produtoId = $row['produto_id'] ?? $row['PRODUTO_ID'];
+
+        // 2. Percorre a lista de imagens salvas e insere todas no banco de dados
+        if (!empty($listaImagens)) {
+            $sqlImg = "INSERT INTO PRODUTO_IMAGEM (PRODUTO_ID, CAMINHO) VALUES (?, ?)";
+            $stmtImg = $this->conn->prepare($sqlImg);
+            
+            foreach ($listaImagens as $img) {
+                // Passa o ID gerado do produto e o caminho individual da foto
+                $stmtImg->execute([$produtoId, $img->caminho]);
+            }
+        }
+
+        return $produtoId;
     }
 
     public function atualizar(Produto $produto) {
@@ -29,17 +45,28 @@ class ProdutoDAO {
         return $stmt->execute([$produto_id]);
     }
 
-    /** Consulta produtos com fornecedor e estoque (join). Filtro opcional por nome/código. */
+    /** Consulta produtos com fornecedor, estoque e a primeira imagem cadastrada. Filtro opcional por nome/código. */
     public function consultar($termo = "") {
-        $sql = "SELECT p.*, f.nome AS fornecedor_nome, e.quantidade, e.preco
+        // Usamos DISTINCT ON no PostgreSQL para garantir que retorne estritamente 1 imagem por produto (a primeira criada)
+        $sql = "SELECT DISTINCT ON (p.produto_id) 
+                       p.*, 
+                       f.nome AS fornecedor_nome, 
+                       e.quantidade, 
+                       e.preco, 
+                       pi.caminho AS imagem_caminho
                 FROM PRODUTO p
                 JOIN FORNECEDOR f ON p.fornecedor_id = f.fornecedor_id
-                JOIN ESTOQUE   e ON p.produto_id    = e.produto_id";
+                JOIN ESTOQUE   e ON p.produto_id    = e.produto_id
+                LEFT JOIN PRODUTO_IMAGEM pi ON p.produto_id = pi.produto_id";
+        
         if ($termo !== "") {
             $sql .= " WHERE p.nome ILIKE ? OR CAST(p.produto_id AS TEXT) = ?";
+            // Ordenamos por produto_id (obrigatório pelo DISTINCT ON) e depois pelo ID da imagem para pegar a primeira
+            $sql .= " ORDER BY p.produto_id ASC, pi.produto_imagem_id ASC";
             $stmt = $this->conn->prepare($sql);
             $stmt->execute(["%$termo%", $termo]);
         } else {
+            $sql .= " ORDER BY p.produto_id ASC, pi.produto_imagem_id ASC";
             $stmt = $this->conn->query($sql);
         }
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -47,13 +74,38 @@ class ProdutoDAO {
 
     /** Retorna produto + estoque + nome do fornecedor por ID (edição e carrinho). */
     public function buscarComEstoquePorId($produto_id) {
-        $sql = "SELECT p.*, f.nome AS fornecedor_nome, e.quantidade, e.preco
+        // Query limpa e sem DISTINCT ON para evitar conflitos em buscas por ID único
+        $sql = "SELECT p.*, f.nome AS fornecedor_nome, e.quantidade, e.preco, pi.caminho AS imagem_caminho
                 FROM PRODUTO p
                 JOIN ESTOQUE    e ON p.produto_id    = e.produto_id
                 JOIN FORNECEDOR f ON p.fornecedor_id = f.fornecedor_id
-                WHERE p.produto_id = ?";
+                LEFT JOIN PRODUTO_IMAGEM pi ON p.produto_id = pi.produto_id
+                WHERE p.produto_id = ?
+                LIMIT 1"; // Garante apenas um resultado sem forçar ordenações complexas
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([$produto_id]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
+
+/** Busca todas as imagens associadas a um produto específico */
+public function buscarImagensPorProdutoId($produto_id) {
+    $sql = "SELECT * FROM PRODUTO_IMAGEM WHERE PRODUTO_ID = ? ORDER BY PRODUTO_IMAGEM_ID ASC";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([$produto_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/** Exclui uma imagem específica pelo ID dela */
+public function excluirImagem($produto_imagem_id) {
+    $sql = "DELETE FROM PRODUTO_IMAGEM WHERE PRODUTO_IMAGEM_ID = ?";
+    $stmt = $this->conn->prepare($sql);
+    return $stmt->execute([$produto_imagem_id]);
+}
+
+/** Insere uma única imagem vinculada ao produto */
+public function inserirImagem($produto_id, $caminho) {
+    $sql = "INSERT INTO PRODUTO_IMAGEM (PRODUTO_ID, CAMINHO) VALUES (?, ?)";
+    $stmt = $this->conn->prepare($sql);
+    return $stmt->execute([$produto_id, $caminho]);
+}
 }

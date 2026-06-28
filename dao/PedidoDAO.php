@@ -196,6 +196,7 @@ class PedidoDAO{
         return $this->consultarPedidoDetalhado((int) $pedidoId, $usuarioClienteId);
     }
 
+    /** ADJUSTED: Busca a primeira imagem string vinculada ao produto na nova tabela */
     public function consultarItensPedidoPaginado(
         int $pedidoId,
         int $pagina = 1,
@@ -204,17 +205,15 @@ class PedidoDAO{
     ): array {
         $offset = ($pagina - 1) * $limite;
 
+        // Utilizamos o DISTINCT ON no Postgres para assegurar apenas uma foto por item
         $sql = "
-            SELECT
+            SELECT DISTINCT ON (ip.ITEM_PEDIDO_ID)
                 ip.ITEM_PEDIDO_ID,
                 ip.PEDIDO_ID,
                 ip.PRODUTO_ID,
                 p.NOME AS PRODUTO_NOME,
                 p.DESCRICAO AS PRODUTO_DESCRICAO,
-                CASE
-                    WHEN p.FOTO IS NULL THEN NULL
-                    ELSE encode(p.FOTO, 'base64')
-                END AS FOTO_BASE64,
+                pi.CAMINHO AS IMAGEM_CAMINHO,
                 ip.QUANTIDADE,
                 ip.PRECO AS VALOR_UNITARIO,
                 (ip.QUANTIDADE * ip.PRECO) AS VALOR_TOTAL_ITEM
@@ -225,6 +224,8 @@ class PedidoDAO{
                 ON pe.PEDIDO_ID = ip.PEDIDO_ID
             JOIN CLIENTE c
                 ON c.CLIENTE_ID = pe.CLIENTE_ID
+            LEFT JOIN PRODUTO_IMAGEM pi
+                ON pi.PRODUTO_ID = p.PRODUTO_ID
             WHERE ip.PEDIDO_ID = :pedido_id
         ";
 
@@ -237,8 +238,9 @@ class PedidoDAO{
             $params[':usuario_cliente_id'] = $usuarioClienteId;
         }
 
+        // Importante: No PostgreSQL, colunas do DISTINCT ON precisam vir primeiro no ORDER BY
         $sql .= "
-            ORDER BY ip.ITEM_PEDIDO_ID
+            ORDER BY ip.ITEM_PEDIDO_ID, pi.PRODUTO_IMAGEM_ID ASC
             LIMIT :limite
             OFFSET :offset
         ";
@@ -283,16 +285,14 @@ class PedidoDAO{
         return (int) $stmt->fetchColumn();
     }
 
+    /** ADJUSTED: Retorna apenas 1 foto por produto no histórico de detalhes do pedido */
     public function consultarFotosPedido(int $pedidoId, ?int $usuarioClienteId = null): array
     {
         $sql = "
-            SELECT
+            SELECT DISTINCT ON (p.PRODUTO_ID)
                 p.PRODUTO_ID,
                 p.NOME AS PRODUTO_NOME,
-                CASE
-                    WHEN p.FOTO IS NULL THEN NULL
-                    ELSE encode(p.FOTO, 'base64')
-                END AS FOTO_BASE64
+                pi.CAMINHO AS IMAGEM_CAMINHO
             FROM ITEM_PEDIDO ip
             JOIN PRODUTO p
                 ON p.PRODUTO_ID = ip.PRODUTO_ID
@@ -300,6 +300,8 @@ class PedidoDAO{
                 ON pe.PEDIDO_ID = ip.PEDIDO_ID
             JOIN CLIENTE c
                 ON c.CLIENTE_ID = pe.CLIENTE_ID
+            LEFT JOIN PRODUTO_IMAGEM pi
+                ON pi.PRODUTO_ID = p.PRODUTO_ID
             WHERE ip.PEDIDO_ID = :pedido_id
         ";
 
@@ -312,7 +314,7 @@ class PedidoDAO{
             $params[':usuario_cliente_id'] = $usuarioClienteId;
         }
 
-        $sql .= " ORDER BY ip.ITEM_PEDIDO_ID";
+        $sql .= " ORDER BY p.PRODUTO_ID, pi.PRODUTO_IMAGEM_ID ASC";
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute($params);
@@ -352,7 +354,6 @@ class PedidoDAO{
             $params[':cliente'] = '%' . $cliente . '%';
         }
 
-        // Mesmo filtro do consultarPedidos: cliente vê apenas os próprios pedidos.
         if ($usuarioClienteId !== null) {
             $sql .= " AND c.USUARIO_ID = :usuario_cliente_id";
             $params[':usuario_cliente_id'] = $usuarioClienteId;
@@ -364,7 +365,6 @@ class PedidoDAO{
         return (int) $stmt->fetchColumn();
     }
 
-    /** Retorna o ID de uma situação pela descrição (ex.: 'NOVO'). */
     public function buscarSituacaoId(string $descricao): ?int
     {
         $stmt = $this->conn->prepare(
@@ -375,7 +375,6 @@ class PedidoDAO{
         return $id === false ? null : (int) $id;
     }
 
-    /** Próximo número de pedido (sequencial e único). */
     public function proximoNumero(): int
     {
         $stmt = $this->conn->query(
@@ -384,10 +383,6 @@ class PedidoDAO{
         return (int) $stmt->fetchColumn();
     }
 
-    /**
-     * Insere o cabeçalho do pedido e retorna o PEDIDO_ID gerado.
-     * Deve ser chamado dentro de uma transação (US05).
-     */
     public function inserirPedido(int $clienteId, int $numero, int $situacaoId): int
     {
         $sql = "INSERT INTO PEDIDO (CLIENTE_ID, PEDIDO_NUMERO, DATA_PEDIDO, SITUACAO_ID)
@@ -397,7 +392,6 @@ class PedidoDAO{
         return (int) $stmt->fetchColumn();
     }
 
-    /** Insere um item do pedido. */
     public function inserirItem(int $pedidoId, int $produtoId, int $quantidade, float $preco): bool
     {
         $sql = "INSERT INTO ITEM_PEDIDO (PEDIDO_ID, PRODUTO_ID, QUANTIDADE, PRECO)
@@ -406,11 +400,6 @@ class PedidoDAO{
         return $stmt->execute([$pedidoId, $produtoId, $quantidade, $preco]);
     }
 
-    /**
-     * Atualiza a situação de um pedido (US06).
-     * Para "ENTREGUE" grava DATA_ENTREGA; para "CANCELADO" grava
-     * DATA_CANCELAMENTO — sempre com a data atual da ação.
-     */
     public function atualizarSituacao(int $pedidoId, string $novaSituacao): bool
     {
         $situacaoId = $this->buscarSituacaoId($novaSituacao);
@@ -418,8 +407,6 @@ class PedidoDAO{
             throw new Exception("Situação '$novaSituacao' não cadastrada.");
         }
 
-        // Coluna de data conforme a ação. Lista fixa (não vem do usuário),
-        // então é seguro interpolar no SQL.
         $colunaData = null;
         if ($novaSituacao === 'ENTREGUE')  { $colunaData = 'DATA_ENTREGA'; }
         if ($novaSituacao === 'CANCELADO') { $colunaData = 'DATA_CANCELAMENTO'; }

@@ -64,12 +64,30 @@ try {
     $itens = $pedidoDAO->consultarItensPedidoPaginado($pedidoId, $pagina, $limite, $usuarioClienteId);
     $fotos = $pedidoDAO->consultarFotosPedido($pedidoId, $usuarioClienteId);
 
+    // Ajusta os dados dos itens e formata o caminho da imagem
     foreach ($itens as &$item) {
         $item['quantidade'] = (int) $item['quantidade'];
         $item['valor_unitario'] = (float) $item['valor_unitario'];
         $item['valor_total_item'] = (float) $item['valor_total_item'];
+
+        // Se o produto tiver imagem, concatena com a BASE_URL do sistema
+        if (!empty($item['imagem_caminho'])) {
+            $item['foto'] = BASE_URL . $item['imagem_caminho'];
+        } else {
+            $item['foto'] = null; // Tratamento caso não tenha foto
+        }
     }
     unset($item);
+
+    // Ajusta o array separado de fotos (caso seu front-end utilize ele)
+    foreach ($fotos as &$foto) {
+        if (!empty($foto['imagem_caminho'])) {
+            $foto['foto'] = BASE_URL . $foto['imagem_caminho'];
+        } else {
+            $foto['foto'] = null;
+        }
+    }
+    unset($foto);
 
     responder([
         'ok' => true,
