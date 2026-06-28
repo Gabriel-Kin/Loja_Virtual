@@ -2,15 +2,16 @@
 session_start();
 require_once __DIR__ . "/../../config/bootstrap.php";
 
-if (!isset($_SESSION['usuario_id'])) {
-    header("Location: " . BASE_URL . "/public/index.php");
-    exit;
+if (!isset($_SESSION['usuario_id'])) { 
+    header("Location: " . BASE_URL . "/public/index.php"); 
+    exit; 
 }
 
 $db = getDB();
 $produtoDAO   = new ProdutoDAO($db);
 $estoqueDAO   = new EstoqueDAO($db);
 $fornecedorDAO = new FornecedorDAO($db);
+$mensagem = "";
 
 // Processar Cadastro (produto + estoque + imagens numa única transação coordenada pelo DAO)
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_cadastrar'])) {
@@ -82,9 +83,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['bt_cadastrar'])) {
 // Busca fornecedores para o Select (Combo Box)
 $fornecedores = $fornecedorDAO->listarParaSelect();
 
-// Busca de Produtos
-$busca = $_GET['search'] ?? "";
-$lista = $produtoDAO->consultar($busca);
+// Lógica de Consulta com Paginação (8 itens por página - US02)
+$busca = trim($_GET['search'] ?? "");
+$limite = 8;
+$paginaAtual = (isset($_GET['pagina']) && ctype_digit($_GET['pagina'])) ? (int) $_GET['pagina'] : 1;
+if ($paginaAtual < 1) { $paginaAtual = 1; }
+
+// Obtém totais e calcula as páginas necessárias
+$totalRegistros = $produtoDAO->contarTotal($busca);
+$totalPaginas = $totalRegistros > 0 ? (int) ceil($totalRegistros / $limite) : 1;
+
+if ($paginaAtual > $totalPaginas) {
+    $paginaAtual = $totalPaginas;
+}
+
+// Busca apenas os 8 produtos da página ativa
+$lista = $produtoDAO->consultarPaginado($busca, $paginaAtual, $limite);
+
+/** Função auxiliar para construir os links mantendo o termo buscado */
+function urlPaginacao(int $numPagina, string $busca): string {
+    $params = ['pagina' => $numPagina];
+    if ($busca !== "") {
+        $params['search'] = $busca;
+    }
+    return "?" . http_build_query($params);
+}
 ?>
 
 <!DOCTYPE html>
@@ -115,6 +138,9 @@ $lista = $produtoDAO->consultar($busca);
                 <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
             </div>
             <button type="submit" class="btn">Buscar</button>
+            <?php if ($busca !== ""): ?>
+                <a href="<?= BASE_URL ?>/views/produtos/produtos.php" class="btn btn-secundario" style="text-decoration:none;">Limpar</a>
+            <?php endif; ?>
         </form>
 
         <table>
@@ -171,6 +197,42 @@ $lista = $produtoDAO->consultar($busca);
                 <?php endif; ?>
             </tbody>
         </table>
+
+        <?php if ($totalPaginas > 1): ?>
+            <div class="paginacao" style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px;">
+                
+                <?php if ($paginaAtual > 1): ?>
+                    <a class="btn btn-secundario" href="<?= urlPaginacao($paginaAtual - 1, $busca) ?>">Anterior</a>
+                <?php else: ?>
+                    <button class="btn btn-secundario" disabled>Anterior</button>
+                <?php endif; ?>
+
+                <div class="paginas-numeros" style="display: flex; gap: 5px;">
+                    <?php for ($i = 1; $i <= $totalPaginas; $i++): ?>
+                        <?php if ($i === $paginaAtual): ?>
+                            <button class="btn btn-ativo" disabled style="padding: 5px 10px; font-weight: bold; background-color: #007bff; color: #fff; border: 1px solid #007bff; cursor: not-allowed;">
+                                <?= $i ?>
+                            </button>
+                        <?php else: ?>
+                            <a class="btn btn-secundario" href="<?= urlPaginacao($i, $busca) ?>" style="padding: 5px 10px; text-decoration: none;">
+                                <?= $i ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endfor; ?>
+                </div>
+
+                <?php if ($paginaAtual < $totalPaginas): ?>
+                    <a class="btn btn-secundario" href="<?= urlPaginacao($paginaAtual + 1, $busca) ?>">Próxima</a>
+                <?php else: ?>
+                    <button class="btn btn-secundario" disabled>Próxima</button>
+                <?php endif; ?>
+
+            </div>
+            <div style="text-align: center; color: #777; font-size: 13px; margin-top: 8px;">
+                Mostrando página <?= $paginaAtual ?> de <?= $totalPaginas ?> (Total de <?= $totalRegistros ?> registros)
+            </div>
+        <?php endif; ?>
+
     </div>
 
     <div id="modal-novo-produto" class="modal-overlay" onclick="if (event.target === this) fecharModal()">
@@ -203,7 +265,6 @@ $lista = $produtoDAO->consultar($busca);
     </div>
 
     <script>
-        // Modal de novo produto
         function abrirModal() {
             document.getElementById("modal-novo-produto").classList.add("aberto");
         }
@@ -212,7 +273,6 @@ $lista = $produtoDAO->consultar($busca);
             document.getElementById("modal-novo-produto").classList.remove("aberto");
         }
 
-        // Menu de ações (três pontinhos)
         function alternarKebab(btn) {
             const menu = btn.nextElementSibling;
             const estavaAberto = menu.classList.contains("aberto");

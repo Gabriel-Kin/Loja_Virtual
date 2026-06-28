@@ -45,15 +45,11 @@ class UsuarioDAO {
     /**
      * Exclui o usuário e os registros dependentes do seu perfil
      * (administrador / cliente / fornecedor) e os endereços associados.
-     * Deve ser chamado dentro de uma transação.
-     * Lança exceção (FK) se o usuário for fornecedor com produtos vinculados.
      */
     public function excluirComDependencias($usuario_id) {
-        // Administrador (não possui endereço próprio)
         $this->conn->prepare("DELETE FROM ADMINISTRADOR WHERE USUARIO_ID = ?")
                    ->execute([$usuario_id]);
 
-        // Cliente -> remove cliente e seu endereço
         $stmt = $this->conn->prepare("SELECT ENDERECO_ID FROM CLIENTE WHERE USUARIO_ID = ?");
         $stmt->execute([$usuario_id]);
         if ($cli = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -62,7 +58,6 @@ class UsuarioDAO {
                        ->execute([$cli['endereco_id'] ?? $cli['ENDERECO_ID']]);
         }
 
-        // Fornecedor -> remove fornecedor e seu endereço (falha se houver produtos)
         $stmt = $this->conn->prepare("SELECT ENDERECO_ID FROM FORNECEDOR WHERE USUARIO_ID = ?");
         $stmt->execute([$usuario_id]);
         if ($forn = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -71,7 +66,6 @@ class UsuarioDAO {
                        ->execute([$forn['endereco_id'] ?? $forn['ENDERECO_ID']]);
         }
 
-        // Por fim, o usuário
         return $this->excluir($usuario_id);
     }
 
@@ -99,5 +93,47 @@ class UsuarioDAO {
             $stmt = $this->conn->query("SELECT * FROM USUARIO ORDER BY USUARIO_ID");
         }
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function listarPaginado(string $busca = "", int $pagina = 1, int $limite = 8): array {
+        $offset = ($pagina - 1) * $limite;
+        
+        $sql = "SELECT USUARIO_ID, EMAIL, TIPO FROM USUARIO";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE EMAIL ILIKE ? OR CAST(USUARIO_ID AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        $sql .= " ORDER BY USUARIO_ID DESC LIMIT ? OFFSET ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        
+        $idx = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($idx++, $p);
+        }
+        
+        // Vincula estritamente como inteiros para o PostgreSQL não acusar erro de sintaxe
+        $stmt->bindValue($idx++, $limite, PDO::PARAM_INT);
+        $stmt->bindValue($idx++, $offset, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function contarTotal(string $busca = "") {
+        $sql = "SELECT COUNT(USUARIO_ID) FROM USUARIO";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE EMAIL ILIKE ? OR CAST(USUARIO_ID AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 }
