@@ -46,28 +46,24 @@ $listaUsuarios = $usuarioDAO->listar($busca);
     
     <div class="container">
 
-    <div class="container">
-        <h2>Novo Usuário</h2>
-        <?php if($mensagem) echo "<p style='color:blue'>$mensagem</p>"; ?>
-        
-        <form method="POST">
-            <input type="email" name="email" placeholder="E-mail" required>
-            <input type="password" name="senha" placeholder="Senha" required>
-            <select name="tipo">
-                <option value="1">1 - Administrador</option>
-                <option value="2">2 - Cliente</option>
-                <option value="3">3 - Fornecedor</option>
-            </select>
-            <button type="submit" name="bt_cadastrar" class="btn">Cadastrar Usuário</button>
+        <div class="lista-toolbar">
+            <h2>Usuários</h2>
+            <button type="button" class="btn" onclick="abrirModal()">
+                <i class="fa-solid fa-plus"></i> Novo Usuário
+            </button>
+        </div>
+
+        <form method="GET" class="lista-busca">
+            <div class="busca-campo">
+                <i class="fa-solid fa-magnifying-glass busca-icone"></i>
+                <input type="text" name="search" placeholder="Buscar por e-mail ou ID..." value="<?= htmlspecialchars($busca) ?>">
+            </div>
+            <button type="submit" class="btn">Buscar</button>
         </form>
 
-        <hr>
-
-        <h2>Lista de Usuários</h2>
-        <form method="GET" style="display: flex; gap: 10px;">
-            <input type="text" name="search" placeholder="Buscar por e-mail ou ID..." value="<?= htmlspecialchars($busca) ?>">
-            <button type="submit" class="btn">Consultar</button>
-        </form>
+        <?php if ($mensagem): ?>
+            <div class="lista-msg"><?= htmlspecialchars($mensagem) ?></div>
+        <?php endif; ?>
 
         <table>
             <thead>
@@ -75,34 +71,99 @@ $listaUsuarios = $usuarioDAO->listar($busca);
                     <th>ID</th>
                     <th>E-mail</th>
                     <th>Tipo</th>
-                    <th>Ações</th>
+                    <th style="width:60px; text-align:center;">Ações</th>
                 </tr>
             </thead>
             <tbody>
-                 <?php foreach($listaUsuarios as $user): ?>
-                  <tr>
+                <?php foreach($listaUsuarios as $user): ?>
+                <tr>
                     <td><?= $user['usuario_id'] ?></td>
                     <td><?= htmlspecialchars($user['email']) ?></td>
-                     <td>
-                     <?php 
-                     if($user['tipo'] == 1) echo "Admin";
-                       elseif($user['tipo'] == 2) echo "Cliente";
-                       else echo "Fornecedor";
-                     ?>
-                     </td>
-                    <td style="white-space: nowrap;">
-                     <a href="<?= BASE_URL ?>/views/usuarios/editar_usuario.php?id=<?= $user['usuario_id'] ?>" class="btn-edit">Editar</a>
-            
-                      <a href="<?= BASE_URL ?>/views/usuarios/excluir_usuario.php?id=<?= $user['usuario_id'] ?>" 
-                       class="btn-del" 
-                       onclick="return confirm('Deseja realmente excluir este usuário?')">
-                      Excluir
-                     </a>
+                    <td>
+                        <?php
+                        if ($user['tipo'] == 1) echo "Admin";
+                        elseif ($user['tipo'] == 2) echo "Cliente";
+                        else echo "Fornecedor";
+                        ?>
+                    </td>
+                    <td style="text-align:center;">
+                        <div class="kebab-wrap">
+                            <button type="button" class="kebab-btn" onclick="alternarKebab(this)" aria-label="Ações" aria-haspopup="true">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="kebab-menu">
+                                <a href="<?= BASE_URL ?>/views/usuarios/editar_usuario.php?id=<?= $user['usuario_id'] ?>">
+                                    <i class="fa-solid fa-pen"></i> Editar
+                                </a>
+                                <a href="<?= BASE_URL ?>/views/usuarios/excluir_usuario.php?id=<?= $user['usuario_id'] ?>"
+                                   class="kebab-item-perigo"
+                                   onclick="return confirm('Deseja realmente excluir este usuário?')">
+                                    <i class="fa-solid fa-trash"></i> Excluir
+                                </a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
+                <?php endforeach; ?>
+
+                <?php if (count($listaUsuarios) === 0): ?>
+                <tr><td colspan="4" style="text-align:center;">Nenhum usuário encontrado.</td></tr>
+                <?php endif; ?>
+            </tbody>
         </table>
     </div>
+
+    <!-- Modal: novo usuário -->
+    <div id="modal-novo-usuario" class="modal-overlay" onclick="if (event.target === this) fecharModal()">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3>Novo Usuário</h3>
+                <button type="button" class="modal-close" onclick="fecharModal()" aria-label="Fechar">&times;</button>
+            </div>
+            <form method="POST">
+                <input type="email" name="email" placeholder="E-mail" required>
+                <input type="password" name="senha" placeholder="Senha" required>
+                <select name="tipo">
+                    <option value="1">1 - Administrador</option>
+                    <option value="2">2 - Cliente</option>
+                    <option value="3">3 - Fornecedor</option>
+                </select>
+                <button type="submit" name="bt_cadastrar" class="btn" style="width:100%; margin-top:8px;">
+                    Cadastrar Usuário
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Modal de novo usuário
+        function abrirModal() {
+            document.getElementById("modal-novo-usuario").classList.add("aberto");
+        }
+        function fecharModal() {
+            document.getElementById("modal-novo-usuario").classList.remove("aberto");
+        }
+
+        // Menu de ações (três pontinhos)
+        function alternarKebab(btn) {
+            const menu = btn.nextElementSibling;
+            const estavaAberto = menu.classList.contains("aberto");
+            fecharTodosKebabs();
+            if (!estavaAberto) menu.classList.add("aberto");
+        }
+        function fecharTodosKebabs() {
+            document.querySelectorAll(".kebab-menu.aberto").forEach(function (m) {
+                m.classList.remove("aberto");
+            });
+        }
+        // Fecha o menu ao clicar fora dele
+        document.addEventListener("click", function (e) {
+            if (!e.target.closest(".kebab-wrap")) fecharTodosKebabs();
+        });
+        // Fecha modal/menus com a tecla Esc
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") { fecharModal(); fecharTodosKebabs(); }
+        });
+    </script>
 </body>
 </html>

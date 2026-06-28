@@ -1181,3 +1181,239 @@ nav a:hover,
         gap: 6px;
     }
 }
+
+/* ===================================================================
+   GESTÃO DE PEDIDOS - mudança de status (US06)
+   =================================================================== */
+.pedido-acoes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+}
+
+.btn-entregue {
+    background-color: #2e7d32 !important;
+    color: #fff !important;
+}
+
+.btn-entregue:hover {
+    background-color: #1b5e20 !important;
+}
+
+.btn-cancelar {
+    background-color: #c62828 !important;
+    color: #fff !important;
+}
+
+.btn-cancelar:hover {
+    background-color: #8e0000 !important;
+}
+
+.pedido-data-acao {
+    margin: 10px 0 0;
+    color: #555;
+    font-size: 14px;
+}
+
+.pedido-msg {
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 12px 0;
+    font-size: 14px;
+}
+
+.pedido-msg-ok   { background: #e8f5e9; color: #2e7d32; }
+.pedido-msg-erro { background: #ffebee; color: #c62828; }
+
+/* --- Total do pedido abaixo da lista de itens (US07/detalhe) --- */
+.pedido-itens-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 2px solid #eee;
+    font-size: 18px;
+}
+
+.pedido-itens-total strong {
+    color: #2e7d32;
+    font-size: 20px;
+}
+
+/* ===================================================================
+   LISTA + MODAL + MENU KEBAB (teste de design — tela de usuários)
+   =================================================================== */
+.lista-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.lista-toolbar-acoes {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+}
+
+.lista-busca {
+    display: flex;
+    gap: 8px;
+    margin: 4px 0 18px;
+    width: 100%;
+}
+
+/* Campo de busca com ícone de lupa à esquerda */
+.busca-campo {
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.busca-icone {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #999;
+    font-size: 15px;
+    pointer-events: none;
+}
+
+.busca-campo input {
+    width: 100%;
+    margin: 0;
+    padding: 12px 14px 12px 40px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+.lista-msg {
+    background: #e8f5e9;
+    color: #2e7d32;
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 14px;
+}
+
+/* --- Menu de três pontinhos (kebab) --- */
+.kebab-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.kebab-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    color: #555;
+    padding: 6px 10px;
+    border-radius: 6px;
+    line-height: 1;
+}
+
+.kebab-btn:hover {
+    background: #f0f0f0;
+}
+
+.kebab-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: #fff;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    min-width: 160px;
+    z-index: 50;
+    overflow: hidden;
+}
+
+.kebab-menu.aberto {
+    display: block;
+}
+
+.kebab-menu a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    color: #333;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.kebab-menu a:hover {
+    background: #f5f7fa;
+}
+
+.kebab-item-perigo {
+    color: #c62828 !important;
+}
+
+.kebab-item-perigo:hover {
+    background: #ffebee !important;
+}
+
+/* --- Modal --- */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.aberto {
+    display: flex;
+}
+
+.modal-box {
+    background: #fff;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.modal-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.modal-head h3 {
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    color: #888;
+}
+
+.modal-close:hover {
+    color: #333;
+}

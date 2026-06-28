@@ -39,6 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mensagem = "Erro ao cadastrar fornecedor: " . $e->getMessage();
     }
 }
+
+// Consulta (por código ou nome)
+$busca = $_GET['search'] ?? "";
+$lista = $fornecedorDAO->consultar($busca);
 ?>
 
 <!DOCTYPE html>
@@ -54,70 +58,123 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <div class="container">
 
-    <div class="container">
-        <h2>Cadastrar Fornecedor</h2>
-        <?php if($mensagem) echo "<p>$mensagem</p>"; ?>
-        
-        <form method="POST">
-            <h3>Dados Gerais</h3>
-            <input type="text" name="nome" placeholder="Nome da Empresa" required>
-            <input type="email" name="email" placeholder="E-mail (Login)" required>
-            <input type="password" name="senha" placeholder="Senha" required>
-            <input type="text" name="telefone" placeholder="Telefone">
-            <textarea name="descricao" placeholder="Descrição dos serviços"></textarea>
+        <div class="lista-toolbar">
+            <h2>Fornecedores</h2>
+            <button type="button" class="btn" onclick="abrirModal()">
+                <i class="fa-solid fa-plus"></i> Novo Fornecedor
+            </button>
+        </div>
 
-            <h3>Endereço</h3>
-            <input type="text" name="rua" placeholder="Rua" required>
-            <input type="text" name="numero" placeholder="Número" style="width: 20%;">
-            <input type="text" name="bairro" placeholder="Bairro" style="width: 78%;">
-            <input type="text" name="cidade" placeholder="Cidade" required>
-            <input type="text" name="estado" placeholder="Estado (UF)" maxlength="2">
-            <input type="text" name="cep" placeholder="CEP">
+        <?php if ($mensagem): ?>
+            <div class="lista-msg"><?= htmlspecialchars($mensagem) ?></div>
+        <?php endif; ?>
 
-            <button type="submit" class="btn">Salvar Fornecedor</button>
-        </form>
-
-        <hr>
-        <h2>Fornecedores Registados</h2>
-
-        <?php $busca = $_GET['search'] ?? ""; ?>
-        <form method="GET" style="display:flex; gap:10px; margin-bottom:15px;">
-            <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
-            <button type="submit" class="btn">Consultar</button>
-            <?php if($busca !== ""): ?>
-                <a href="<?= BASE_URL ?>/views/fornecedores/fornecedores.php" class="btn-secondary" style="padding:10px; text-decoration:none;">Limpar</a>
+        <form method="GET" class="lista-busca">
+            <div class="busca-campo">
+                <i class="fa-solid fa-magnifying-glass busca-icone"></i>
+                <input type="text" name="search" placeholder="Buscar por nome ou código..." value="<?= htmlspecialchars($busca) ?>">
+            </div>
+            <button type="submit" class="btn">Buscar</button>
+            <?php if ($busca !== ""): ?>
+                <a href="<?= BASE_URL ?>/views/fornecedores/fornecedores.php" class="btn btn-secundario" style="text-decoration:none;">Limpar</a>
             <?php endif; ?>
         </form>
 
         <table>
-            <tr>
-                <th>Cód</th>
-                <th>Nome</th>
-                <th>Cidade</th>
-                <th>E-mail</th>
-                <th>Ações</th>
-            </tr>
-            <?php
-            $lista = $fornecedorDAO->consultar($busca);
-            foreach($lista as $f):
-            ?>
-            <tr>
-               <td><?= $f['fornecedor_id'] ?></td>
-               <td><?= htmlspecialchars($f['nome']) ?></td>
-               <td><?= htmlspecialchars($f['cidade']) ?></td>
-               <td><?= htmlspecialchars($f['email']) ?></td>
-               <td style="white-space: nowrap;">
-                  <a href="<?= BASE_URL ?>/views/fornecedores/editar_fornecedor.php?id=<?= $f['fornecedor_id'] ?>" class="btn-edit">Editar</a>
-        
-                  <a href="<?= BASE_URL ?>/views/fornecedores/excluir_fornecedor.php?id=<?= $f['fornecedor_id'] ?>" 
-                      class="btn-del" 
-                      onclick="return confirm('Deseja realmente remover este fornecedor?')">
-                   Remover
-                </a>
-                </td>
-            </tr>
-           <?php endforeach; ?>
+            <thead>
+                <tr>
+                    <th>Cód</th>
+                    <th>Nome</th>
+                    <th>Cidade</th>
+                    <th>E-mail</th>
+                    <th style="width:60px; text-align:center;">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach($lista as $f): ?>
+                <tr>
+                    <td><?= $f['fornecedor_id'] ?></td>
+                    <td><?= htmlspecialchars($f['nome']) ?></td>
+                    <td><?= htmlspecialchars($f['cidade']) ?></td>
+                    <td><?= htmlspecialchars($f['email']) ?></td>
+                    <td style="text-align:center;">
+                        <div class="kebab-wrap">
+                            <button type="button" class="kebab-btn" onclick="alternarKebab(this)" aria-label="Ações" aria-haspopup="true">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="kebab-menu">
+                                <a href="<?= BASE_URL ?>/views/fornecedores/editar_fornecedor.php?id=<?= $f['fornecedor_id'] ?>">
+                                    <i class="fa-solid fa-pen"></i> Editar
+                                </a>
+                                <a href="<?= BASE_URL ?>/views/fornecedores/excluir_fornecedor.php?id=<?= $f['fornecedor_id'] ?>"
+                                   class="kebab-item-perigo"
+                                   onclick="return confirm('Deseja realmente remover este fornecedor?')">
+                                    <i class="fa-solid fa-trash"></i> Remover
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+
+                <?php if (count($lista) === 0): ?>
+                <tr><td colspan="5" style="text-align:center;">Nenhum fornecedor encontrado.</td></tr>
+                <?php endif; ?>
+            </tbody>
         </table>
     </div>
+
+    <!-- Modal: novo fornecedor -->
+    <div id="modal-novo-fornecedor" class="modal-overlay" onclick="if (event.target === this) fecharModal()">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3>Novo Fornecedor</h3>
+                <button type="button" class="modal-close" onclick="fecharModal()" aria-label="Fechar">&times;</button>
+            </div>
+            <form method="POST">
+                <h4 style="margin:6px 0;">Dados Gerais</h4>
+                <input type="text" name="nome" placeholder="Nome da Empresa" required>
+                <input type="email" name="email" placeholder="E-mail (Login)" required>
+                <input type="password" name="senha" placeholder="Senha" required>
+                <input type="text" name="telefone" placeholder="Telefone">
+                <textarea name="descricao" placeholder="Descrição dos serviços"></textarea>
+
+                <h4 style="margin:6px 0;">Endereço</h4>
+                <input type="text" name="rua" placeholder="Rua" required>
+                <input type="text" name="numero" placeholder="Número" style="width: 20%;">
+                <input type="text" name="bairro" placeholder="Bairro" style="width: 78%;">
+                <input type="text" name="cidade" placeholder="Cidade" required>
+                <input type="text" name="estado" placeholder="Estado (UF)" maxlength="2">
+                <input type="text" name="cep" placeholder="CEP">
+
+                <button type="submit" class="btn" style="width:100%; margin-top:8px;">Salvar Fornecedor</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Modal de novo fornecedor
+        function abrirModal() { document.getElementById("modal-novo-fornecedor").classList.add("aberto"); }
+        function fecharModal() { document.getElementById("modal-novo-fornecedor").classList.remove("aberto"); }
+
+        // Menu de ações (três pontinhos)
+        function alternarKebab(btn) {
+            const menu = btn.nextElementSibling;
+            const estavaAberto = menu.classList.contains("aberto");
+            fecharTodosKebabs();
+            if (!estavaAberto) menu.classList.add("aberto");
+        }
+        function fecharTodosKebabs() {
+            document.querySelectorAll(".kebab-menu.aberto").forEach(function (m) {
+                m.classList.remove("aberto");
+            });
+        }
+        document.addEventListener("click", function (e) {
+            if (!e.target.closest(".kebab-wrap")) fecharTodosKebabs();
+        });
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") { fecharModal(); fecharTodosKebabs(); }
+        });
+    </script>
 </body>
 </html>

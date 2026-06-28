@@ -185,6 +185,10 @@ switch ($_GET['status'] ?? '') {
         }
 
         function encerrarPedido() {
+            // Pede confirmação antes de fechar o pedido.
+            if (!confirm("Deseja encerrar o pedido? Os itens do carrinho serão registrados como uma compra.")) {
+                return;
+            }
             // O servidor checa login: se não estiver logado, manda para o login
             // e volta para cá; se estiver, grava o pedido e dá baixa no estoque.
             window.location.href = "<?= BASE_URL ?>/views/carrinho/finalizar.php";

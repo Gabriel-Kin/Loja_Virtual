@@ -68,7 +68,7 @@ class PedidoDAO{
                 p.DATA_CANCELAMENTO,
                 c.NOME,
                 ps.DESCRICAO
-            ORDER BY p.DATA_PEDIDO DESC
+            ORDER BY p.DATA_PEDIDO DESC, p.PEDIDO_ID DESC
             LIMIT :limite
             OFFSET :offset
         ";
@@ -323,7 +323,8 @@ class PedidoDAO{
     public function contarPedidos(
         ?int $id = null,
         ?int $numero = null,
-        ?string $cliente = null
+        ?string $cliente = null,
+        ?int $usuarioClienteId = null
     ): int {
         $sql = "
             SELECT
@@ -349,6 +350,12 @@ class PedidoDAO{
         if ($cliente !== null && $cliente !== '') {
             $sql .= " AND c.NOME ILIKE :cliente";
             $params[':cliente'] = '%' . $cliente . '%';
+        }
+
+        // Mesmo filtro do consultarPedidos: cliente vê apenas os próprios pedidos.
+        if ($usuarioClienteId !== null) {
+            $sql .= " AND c.USUARIO_ID = :usuario_cliente_id";
+            $params[':usuario_cliente_id'] = $usuarioClienteId;
         }
 
         $stmt = $this->conn->prepare($sql);
@@ -397,5 +404,33 @@ class PedidoDAO{
                 VALUES (?, ?, ?, ?)";
         $stmt = $this->conn->prepare($sql);
         return $stmt->execute([$pedidoId, $produtoId, $quantidade, $preco]);
+    }
+
+    /**
+     * Atualiza a situação de um pedido (US06).
+     * Para "ENTREGUE" grava DATA_ENTREGA; para "CANCELADO" grava
+     * DATA_CANCELAMENTO — sempre com a data atual da ação.
+     */
+    public function atualizarSituacao(int $pedidoId, string $novaSituacao): bool
+    {
+        $situacaoId = $this->buscarSituacaoId($novaSituacao);
+        if ($situacaoId === null) {
+            throw new Exception("Situação '$novaSituacao' não cadastrada.");
+        }
+
+        // Coluna de data conforme a ação. Lista fixa (não vem do usuário),
+        // então é seguro interpolar no SQL.
+        $colunaData = null;
+        if ($novaSituacao === 'ENTREGUE')  { $colunaData = 'DATA_ENTREGA'; }
+        if ($novaSituacao === 'CANCELADO') { $colunaData = 'DATA_CANCELAMENTO'; }
+
+        if ($colunaData !== null) {
+            $sql = "UPDATE PEDIDO SET SITUACAO_ID = ?, $colunaData = CURRENT_DATE WHERE PEDIDO_ID = ?";
+        } else {
+            $sql = "UPDATE PEDIDO SET SITUACAO_ID = ? WHERE PEDIDO_ID = ?";
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([$situacaoId, $pedidoId]);
     }
 }
