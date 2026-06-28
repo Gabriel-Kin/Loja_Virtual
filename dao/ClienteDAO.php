@@ -86,4 +86,55 @@ class ClienteDAO {
         $stmt = $this->conn->prepare("DELETE FROM CLIENTE WHERE CLIENTE_ID = ?");
         return $stmt->execute([$cliente_id]);
     }
+
+    /** ADICIONADO: Consulta os clientes de forma limitada e deslocada para a paginação (US02) */
+    public function consultarPaginado(string $busca = "", int $pagina = 1, int $limite = 8): array {
+        $offset = ($pagina - 1) * $limite;
+        
+        $sql = "SELECT c.*, u.email, e.cidade
+                FROM CLIENTE c
+                JOIN USUARIO  u ON c.usuario_id  = u.usuario_id
+                JOIN ENDERECO e ON c.endereco_id = e.endereco_id";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE c.nome ILIKE ? OR CAST(c.cliente_id AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        // Ordenação mantida por nome de forma descendente ou ID de acordo com a sua preferência
+        $sql .= " ORDER BY c.cliente_id DESC LIMIT ? OFFSET ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        
+        $idx = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($idx++, $p);
+        }
+        
+        // Vincula de forma estrita como inteiros para não quebrar a tipagem do PostgreSQL
+        $stmt->bindValue($idx++, $limite, PDO::PARAM_INT);
+        $stmt->bindValue($idx++, $offset, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** ADICIONADO: Conta o total absoluto de clientes encontrados no filtro para montar o contador e as páginas */
+    public function contarTotal(string $busca =""): int {
+        $sql = "SELECT COUNT(c.cliente_id) 
+                FROM CLIENTE c
+                JOIN USUARIO  u ON c.usuario_id  = u.usuario_id
+                JOIN ENDERECO e ON c.endereco_id = e.endereco_id";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE c.nome ILIKE ? OR CAST(c.cliente_id AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
 }

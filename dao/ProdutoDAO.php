@@ -87,25 +87,82 @@ class ProdutoDAO {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-/** Busca todas as imagens associadas a um produto específico */
-public function buscarImagensPorProdutoId($produto_id) {
-    $sql = "SELECT * FROM PRODUTO_IMAGEM WHERE PRODUTO_ID = ? ORDER BY PRODUTO_IMAGEM_ID ASC";
-    $stmt = $this->conn->prepare($sql);
-    $stmt->execute([$produto_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+    /** Busca todas as imagens associadas a um produto específico */
+    public function buscarImagensPorProdutoId($produto_id) {
+        $sql = "SELECT * FROM PRODUTO_IMAGEM WHERE PRODUTO_ID = ? ORDER BY PRODUTO_IMAGEM_ID ASC";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([$produto_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
-/** Exclui uma imagem específica pelo ID dela */
-public function excluirImagem($produto_imagem_id) {
-    $sql = "DELETE FROM PRODUTO_IMAGEM WHERE PRODUTO_IMAGEM_ID = ?";
-    $stmt = $this->conn->prepare($sql);
-    return $stmt->execute([$produto_imagem_id]);
-}
+    /** Exclui uma imagem específica pelo ID dela */
+    public function excluirImagem($produto_imagem_id) {
+        $sql = "DELETE FROM PRODUTO_IMAGEM WHERE PRODUTO_IMAGEM_ID = ?";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([$produto_imagem_id]);
+    }
 
-/** Insere uma única imagem vinculada ao produto */
-public function inserirImagem($produto_id, $caminho) {
-    $sql = "INSERT INTO PRODUTO_IMAGEM (PRODUTO_ID, CAMINHO) VALUES (?, ?)";
-    $stmt = $this->conn->prepare($sql);
-    return $stmt->execute([$produto_id, $caminho]);
-}
+    /** Insere uma única imagem vinculada ao produto */
+    public function inserirImagem($produto_id, $caminho) {
+        $sql = "INSERT INTO PRODUTO_IMAGEM (PRODUTO_ID, CAMINHO) VALUES (?, ?)";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([$produto_id, $caminho]);
+    }
+
+    /** ADICIONADO: Consulta os produtos paginados limitando estritamente em lotes de 8 */
+    public function consultarPaginado(string $busca = "", int $pagina = 1, int $limite = 8): array {
+        $offset = ($pagina - 1) * $limite;
+        
+        // Mantém a estrutura idêntica com DISTINCT ON do PostgreSQL
+        $sql = "SELECT DISTINCT ON (p.produto_id) 
+                       p.*, 
+                       f.nome AS fornecedor_nome, 
+                       e.quantidade, 
+                       e.preco, 
+                       pi.caminho AS imagem_caminho
+                FROM PRODUTO p
+                JOIN FORNECEDOR f ON p.fornecedor_id = f.fornecedor_id
+                JOIN ESTOQUE   e ON p.produto_id    = e.produto_id
+                LEFT JOIN PRODUTO_IMAGEM pi ON p.produto_id = pi.produto_id";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE p.nome ILIKE ? OR CAST(p.produto_id AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        // Importante: No PostgreSQL usando DISTINCT ON, a primeira coluna do ORDER BY deve ser a mesma do DISTINCT
+        $sql .= " ORDER BY p.produto_id DESC, pi.produto_imagem_id ASC LIMIT ? OFFSET ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        
+        $idx = 1;
+        foreach ($params as $p) {
+            $stmt->bindValue($idx++, $p);
+        }
+        
+        $stmt->bindValue($idx++, $limite, PDO::PARAM_INT);
+        $stmt->bindValue($idx++, $offset, PDO::PARAM_INT);
+        
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** ADICIONADO: Conta a quantidade total absoluta para o cálculo de botões e páginas */
+    public function contarTotal(string $busca = ""): int {
+        $sql = "SELECT COUNT(p.produto_id) 
+                FROM PRODUTO p
+                JOIN FORNECEDOR f ON p.fornecedor_id = f.fornecedor_id
+                JOIN ESTOQUE   e ON p.produto_id    = e.produto_id";
+        $params = [];
+
+        if ($busca !== "") {
+            $sql .= " WHERE p.nome ILIKE ? OR CAST(p.produto_id AS TEXT) = ?";
+            $params = ["%$busca%", $busca];
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
+    }
 }
