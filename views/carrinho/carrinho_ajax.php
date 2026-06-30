@@ -117,7 +117,7 @@ try {
             }
 
             Carrinho::atualizar($produto_id, $quantidade);
-            responder(true, "Quantidade updated.");
+            responder(true, "Quantidade atualizada.");
             break;
         }
 
