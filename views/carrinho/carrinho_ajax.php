@@ -4,10 +4,10 @@
  *
  * Recebe ações via POST e responde sempre em JSON, sem recarregar a página.
  * Ações suportadas (campo "acao"):
- *   - adicionar : produto_id, quantidade  -> soma ao carrinho
- *   - atualizar : produto_id, quantidade  -> define a quantidade do item
- *   - remover   : produto_id              -> remove o item
- *   - listar    : (nenhum)                -> apenas retorna o estado atual
+ * - adicionar : produto_id, quantidade  -> soma ao carrinho
+ * - atualizar : produto_id, quantidade  -> define a quantidade do item
+ * - remover   : produto_id              -> remove o item
+ * - listar    : (nenhum)                -> apenas retorna o estado atual
  *
  * Regra de estoque: só adiciona/atualiza se houver estoque suficiente.
  * Se a quantidade pedida ultrapassar o disponível, retorna erro e informa
@@ -78,7 +78,16 @@ try {
                 responder(false, $msg, ['estoque_maximo' => $estoque]);
             }
 
-            Carrinho::adicionar($produto_id, $produto['nome'], $produto['preco'], $quantidade, $produto['fornecedor_nome']);
+            // AJUSTADO: Passando a informação da imagem para persistência na sessão do carrinho
+            Carrinho::adicionar(
+                $produto_id, 
+                $produto['nome'], 
+                $produto['preco'], 
+                $quantidade, 
+                $produto['fornecedor_nome'],
+                $produto['imagem_caminho']
+            );
+            
             responder(true, "Produto adicionado ao carrinho.");
             break;
         }
@@ -108,7 +117,7 @@ try {
             }
 
             Carrinho::atualizar($produto_id, $quantidade);
-            responder(true, "Quantidade atualizada.");
+            responder(true, "Quantidade updated.");
             break;
         }
 
