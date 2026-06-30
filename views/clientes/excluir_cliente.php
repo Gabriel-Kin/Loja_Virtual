@@ -38,7 +38,7 @@ if (isset($_GET['id'])) {
         // Normalmente ocorre quando o cliente possui pedidos vinculados
         echo "<h3>Não foi possível excluir o cliente</h3>";
         echo "<p>Provavelmente este cliente possui <b>pedidos</b> cadastrados.</p>";
-        echo "<a href='<?= BASE_URL ?>/views/clientes/clientes.php'>Voltar</a>";
+        echo "<a href='" . BASE_URL . "/views/clientes/clientes.php'>Voltar</a>";
     }
 } else {
     header("Location: " . BASE_URL . "/views/clientes/clientes.php");

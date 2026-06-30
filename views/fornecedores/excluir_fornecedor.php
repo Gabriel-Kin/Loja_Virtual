@@ -37,6 +37,6 @@ if (isset($_GET['id'])) {
         echo "<h3>Erro de Integridade</h3>";
         echo "Não é possível excluir este fornecedor pois ele possui <b>Produtos</b> cadastrados.";
         echo "<br>Remova os produtos deste fornecedor primeiro.";
-        echo "<br><br><a href='<?= BASE_URL ?>/views/fornecedores/fornecedores.php'>Voltar</a>";
+        echo "<br><br><a href='" . BASE_URL . "/views/fornecedores/fornecedores.php'>Voltar</a>";
     }
 }
