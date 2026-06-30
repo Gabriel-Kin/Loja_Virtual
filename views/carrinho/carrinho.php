@@ -112,7 +112,7 @@ switch ($_GET['status'] ?? '') {
             const badge = document.getElementById("cart-badge");
             if (!badge) return;
             badge.textContent = quantidade;
-            badge.style.display = Navigaquantidade = quantidade > 0 ? "" : "none";
+            badge.style.display = quantidade > 0 ? "" : "none";
         }
 
         async function enviarAcao(params) {
@@ -186,7 +186,7 @@ switch ($_GET['status'] ?? '') {
         }
 
         function alterarQtd(produtoId, quantidade) {
-            enviarAcao({ acao: "atualizar", produto_id: produtoId, quantidade: quantity });
+            enviarAcao({ acao: "atualizar", produto_id: produtoId, quantidade: quantidade });
         }
 
         function removerItem(produtoId) {
