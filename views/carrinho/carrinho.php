@@ -49,20 +49,17 @@ switch ($_GET['status'] ?? '') {
     <div class="container">
         <h2 class="carrinho-titulo">Carrinho</h2>
 
-        <!-- Aviso da finalização do pedido (US05) -->
         <?php if ($bannerTexto): ?>
             <div class="cart-msg <?= $bannerClasse ?>"><?= $bannerTexto ?></div>
         <?php endif; ?>
 
-        <!-- Mensagem de feedback (erros de estoque, etc.) -->
         <div id="cart-msg" class="cart-msg" style="display:none;"></div>
 
         <div class="carrinho-layout">
 
-            <!-- Coluna esquerda: lista de itens -->
             <div class="carrinho-itens">
                 <div class="carrinho-card">
-                    <div id="cart-body"><!-- itens renderizados via AJAX --></div>
+                    <div id="cart-body"></div>
                     <div id="cart-vazio" class="carrinho-vazio" style="display:none;">
                         <i class="fa-solid fa-cart-shopping"></i>
                         <p>Seu carrinho está vazio.</p>
@@ -71,7 +68,6 @@ switch ($_GET['status'] ?? '') {
                 </div>
             </div>
 
-            <!-- Coluna direita: resumo da compra -->
             <aside class="carrinho-resumo">
                 <div class="carrinho-card">
                     <h3>Resumo da compra</h3>
@@ -94,6 +90,7 @@ switch ($_GET['status'] ?? '') {
 
     <script>
         const AJAX_URL = "<?= BASE_URL ?>/views/carrinho/carrinho_ajax.php";
+        const BASE_URL_SISTEMA = "<?= BASE_URL ?>"; // Injeta a constante para uso nas imagens do JavaScript
 
         function formatarBRL(valor) {
             return "R$ " + Number(valor).toLocaleString("pt-BR", {
@@ -115,7 +112,7 @@ switch ($_GET['status'] ?? '') {
             const badge = document.getElementById("cart-badge");
             if (!badge) return;
             badge.textContent = quantidade;
-            badge.style.display = quantidade > 0 ? "" : "none";
+            badge.style.display = Navigaquantidade = quantidade > 0 ? "" : "none";
         }
 
         async function enviarAcao(params) {
@@ -149,8 +146,20 @@ switch ($_GET['status'] ?? '') {
                 itens.forEach(function (item) {
                     const linha = document.createElement("div");
                     linha.className = "carrinho-item";
+
+                    // ADJUSTED: Monta a imagem dinamicamente ou renderiza o ícone caso o item retorne vazio do banco
+                    let htmlFoto = '<div class="item-foto" style="width:60px; height:60px; display:flex; align-items:center; justify-content:center; background:#f9f9f9; border:1px solid #eee; border-radius:4px;"><i class="fa-solid fa-image" style="color:#ccc; font-size:20px;"></i></div>';
+                    
+                    // Verifica se a chave imagem_caminho ou caminho existe no objeto de sessão
+                    let caminhoImagem = item.imagem_caminho || item.caminho || '';
+                    if (caminhoImagem) {
+                        htmlFoto = '<div class="item-foto" style="width:60px; height:60px; border-radius:4px; overflow:hidden; border:1px solid #eee;">' +
+                                   '<img src="' + BASE_URL_SISTEMA + caminhoImagem + '" style="width:100%; height:100%; object-fit:cover; display:block;">' +
+                                   '</div>';
+                    }
+
                     linha.innerHTML =
-                        '<div class="item-foto">Sem imagem</div>' +
+                        htmlFoto +
                         '<div class="item-info">' +
                             '<span class="item-nome">' + item.nome + '</span>' +
                             (item.fornecedor ? '<span class="item-fornecedor">Vendido por ' + item.fornecedor + '</span>' : '') +
@@ -177,7 +186,7 @@ switch ($_GET['status'] ?? '') {
         }
 
         function alterarQtd(produtoId, quantidade) {
-            enviarAcao({ acao: "atualizar", produto_id: produtoId, quantidade: quantidade });
+            enviarAcao({ acao: "atualizar", produto_id: produtoId, quantidade: quantity });
         }
 
         function removerItem(produtoId) {
@@ -185,12 +194,9 @@ switch ($_GET['status'] ?? '') {
         }
 
         function encerrarPedido() {
-            // Pede confirmação antes de fechar o pedido.
             if (!confirm("Deseja encerrar o pedido? Os itens do carrinho serão registrados como uma compra.")) {
                 return;
             }
-            // O servidor checa login: se não estiver logado, manda para o login
-            // e volta para cá; se estiver, grava o pedido e dá baixa no estoque.
             window.location.href = "<?= BASE_URL ?>/views/carrinho/finalizar.php";
         }
 

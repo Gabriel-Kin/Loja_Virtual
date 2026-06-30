@@ -7,12 +7,14 @@
  * mesmo sem o cliente estar logado (o login só é exigido na finalização — US05).
  *
  * Cada item é guardado no formato:
- *   produto_id => [
- *       'produto_id' => int,
- *       'nome'       => string,
- *       'preco'      => float,
- *       'quantidade' => int
- *   ]
+ * produto_id => [
+ * 'produto_id'     => int,
+ * 'nome'           => string,
+ * 'fornecedor'     => string,
+ * 'preco'          => float,
+ * 'quantidade'     => int,
+ * 'imagem_caminho' => string // <-- ADICIONADO
+ * ]
  *
  * Esta classe NÃO acessa o banco: a validação de estoque é feita no
  * endpoint (carrinho_ajax.php), que consulta o ProdutoDAO. Assim a regra
@@ -30,21 +32,27 @@ class Carrinho {
     /**
      * Adiciona uma quantidade ao item. Se o produto já estiver no carrinho,
      * a quantidade é somada à existente.
+     * * AJUSTADO: Incluído o parâmetro opcional $imagem_caminho
      */
-    public static function adicionar($produto_id, $nome, $preco, $quantidade, $fornecedor = "") {
+    public static function adicionar($produto_id, $nome, $preco, $quantidade, $fornecedor = "", $imagem_caminho = "") {
         self::init();
         $produto_id = (int) $produto_id;
         $quantidade = (int) $quantidade;
 
         if (isset($_SESSION['carrinho'][$produto_id])) {
             $_SESSION['carrinho'][$produto_id]['quantidade'] += $quantidade;
+            // Opcional: Atualiza o caminho da imagem caso tenha entrado vazio antes
+            if (!empty($imagem_caminho)) {
+                $_SESSION['carrinho'][$produto_id]['imagem_caminho'] = $imagem_caminho;
+            }
         } else {
             $_SESSION['carrinho'][$produto_id] = [
-                'produto_id' => $produto_id,
-                'nome'       => $nome,
-                'fornecedor' => $fornecedor,
-                'preco'      => (float) $preco,
-                'quantidade' => $quantidade,
+                'produto_id'     => $produto_id,
+                'nome'           => $nome,
+                'fornecedor'     => $fornecedor,
+                'preco'          => (float) $preco,
+                'quantidade'     => $quantidade,
+                'imagem_caminho' => $imagem_caminho, // <-- SALVA O CAMINHO NO ITEM
             ];
         }
     }
