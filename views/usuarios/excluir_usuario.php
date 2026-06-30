@@ -35,7 +35,7 @@ if (isset($_GET['id'])) {
         echo "<h3>Não foi possível excluir o usuário</h3>";
         echo "<p>Provavelmente há registros vinculados (ex.: produtos de um fornecedor ou pedidos de um cliente).</p>";
         echo "<p>Remova esses registros primeiro e tente novamente.</p>";
-        echo "<a href='<?= BASE_URL ?>/views/usuarios/usuarios.php'>Voltar</a>";
+        echo "<a href='" . BASE_URL . "/views/usuarios/usuarios.php'>Voltar</a>";
     }
 } else {
     header("Location: " . BASE_URL . "/views/usuarios/usuarios.php");

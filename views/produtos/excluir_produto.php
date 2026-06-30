@@ -55,9 +55,17 @@ if (isset($_GET['id'])) {
             }
         }
 
-    } catch (Exception $e) { 
-        $db->rollBack(); 
-        // Opcional: tratar erro ou salvar em log se preferir
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+
+        // Normalmente ocorre quando o produto possui pedidos vinculados
+        echo "<h3>Nao foi possivel excluir o produto</h3>";
+        echo "<p>Provavelmente este produto possui <b>pedidos</b> cadastrados.</p>";
+        echo "<p>Remova esses vinculos primeiro e tente novamente.</p>";
+        echo "<a href='" . BASE_URL . "/views/produtos/produtos.php'>Voltar</a>";
+        exit;
     }
 }
 
