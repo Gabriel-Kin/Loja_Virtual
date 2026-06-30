@@ -120,7 +120,7 @@ class ProdutoDAO
     }
 
     /** ADICIONADO: Consulta os produtos paginados limitando estritamente em lotes de 8 */
-    public function consultarPaginado(string $busca = "", int $pagina = 1, int $limite = 8): array
+    public function consultarPaginado(string $busca = "", int $pagina = 1, int $limite = 8, ?int $fornecedorId = null): array
     {
         $offset = ($pagina - 1) * $limite;
 
@@ -137,9 +137,20 @@ class ProdutoDAO
                 LEFT JOIN PRODUTO_IMAGEM pi ON p.produto_id = pi.produto_id";
         $params = [];
 
+        $where = [];
+
         if ($busca !== "") {
-            $sql .= " WHERE p.nome ILIKE ? OR p.descricao ILIKE ? OR CAST(p.produto_id AS TEXT) = ?";
+            $where[] = "(p.nome ILIKE ? OR p.descricao ILIKE ? OR CAST(p.produto_id AS TEXT) = ?)";
             $params = ["%$busca%", "%$busca%", $busca];
+        }
+
+        if ($fornecedorId !== null) {
+            $where[] = "p.fornecedor_id = ?";
+            $params[] = $fornecedorId;
+        }
+
+        if (!empty($where)) {
+            $sql .= " WHERE " . implode(" AND ", $where);
         }
 
         // Importante: No PostgreSQL usando DISTINCT ON, a primeira coluna do ORDER BY deve ser a mesma do DISTINCT
@@ -160,7 +171,7 @@ class ProdutoDAO
     }
 
     /** ADICIONADO: Conta a quantidade total absoluta para o cálculo de botões e páginas */
-    public function contarTotal(string $busca = ""): int
+    public function contarTotal(string $busca = "", ?int $fornecedorId = null): int
     {
         $sql = "SELECT COUNT(p.produto_id) 
                 FROM PRODUTO p
@@ -168,13 +179,33 @@ class ProdutoDAO
                 JOIN ESTOQUE   e ON p.produto_id    = e.produto_id";
         $params = [];
 
+        $where = [];
+
         if ($busca !== "") {
-            $sql .= " WHERE p.nome ILIKE ? OR p.descricao ILIKE ? OR CAST(p.produto_id AS TEXT) = ?";
+            $where[] = "(p.nome ILIKE ? OR p.descricao ILIKE ? OR CAST(p.produto_id AS TEXT) = ?)";
             $params = ["%$busca%", "%$busca%", $busca];
+        }
+
+        if ($fornecedorId !== null) {
+            $where[] = "p.fornecedor_id = ?";
+            $params[] = $fornecedorId;
+        }
+
+        if (!empty($where)) {
+            $sql .= " WHERE " . implode(" AND ", $where);
         }
 
         $stmt = $this->conn->prepare($sql);
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    public function pertenceAoFornecedor($produto_id, $fornecedor_id): bool
+    {
+        $stmt = $this->conn->prepare(
+            "SELECT COUNT(*) FROM PRODUTO WHERE produto_id = ? AND fornecedor_id = ?"
+        );
+        $stmt->execute([$produto_id, $fornecedor_id]);
+        return (int) $stmt->fetchColumn() > 0;
     }
 }

@@ -9,8 +9,20 @@ if (!isset($_SESSION['usuario_id'])) {
 
 $db = getDB();
 $pedidoDAO = new PedidoDAO($db);
+$fornecedorDAO = new FornecedorDAO($db);
 $usuarioTipo = (int) ($_SESSION['usuario_tipo'] ?? 0);
 $usuarioClienteId = $usuarioTipo === 2 ? (int) $_SESSION['usuario_id'] : null;
+$fornecedorLogadoId = null;
+
+if ($usuarioTipo === 3) {
+    $fornecedorLogado = $fornecedorDAO->buscarPorUsuarioId($_SESSION['usuario_id']);
+
+    if (!$fornecedorLogado) {
+        die("Fornecedor nao encontrado para o usuario logado.");
+    }
+
+    $fornecedorLogadoId = (int) $fornecedorLogado['fornecedor_id'];
+}
 
 // Admin (1) e Fornecedor (3) podem gerenciar o status dos pedidos (US06).
 $podeGerenciar = in_array($usuarioTipo, [1, 3], true);
@@ -24,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['acao'] ?? '') === 'mudar_s
         $statusMsg = 'sem_permissao';
     } elseif ($idAlvo <= 0 || !in_array($novoStatus, ['ENTREGUE', 'CANCELADO'], true)) {
         $statusMsg = 'invalido';
+    } elseif ($fornecedorLogadoId !== null && !$pedidoDAO->consultarPedidoDetalhado($idAlvo, null, $fornecedorLogadoId)) {
+        $statusMsg = 'sem_permissao';
     } else {
         try {
             $pedidoDAO->atualizarSituacao($idAlvo, $novoStatus);
@@ -72,7 +86,7 @@ $paginaTabela = (isset($_GET['pagina']) && ctype_digit($_GET['pagina']) && (int)
 
 $numeroFiltro = $buscaNumero !== "" && ctype_digit($buscaNumero) ? (int) $buscaNumero : null;
 
-$totalPedidos = $pedidoDAO->contarPedidos(null, $numeroFiltro, $buscaCliente, $usuarioClienteId);
+$totalPedidos = $pedidoDAO->contarPedidos(null, $numeroFiltro, $buscaCliente, $usuarioClienteId, $fornecedorLogadoId);
 $totalPaginasTabela = $totalPedidos > 0 ? (int) ceil($totalPedidos / $porPaginaTabela) : 1;
 if ($paginaTabela > $totalPaginasTabela) {
     $paginaTabela = $totalPaginasTabela;
@@ -84,11 +98,12 @@ $pedidos = $pedidoDAO->consultarPedidos(
     $buscaCliente,
     $paginaTabela,
     $porPaginaTabela,
-    $usuarioClienteId
+    $usuarioClienteId,
+    $fornecedorLogadoId
 );
 
 $pedido = $pedidoId !== null
-    ? $pedidoDAO->consultarPedidoDetalhado($pedidoId, $usuarioClienteId)
+    ? $pedidoDAO->consultarPedidoDetalhado($pedidoId, $usuarioClienteId, $fornecedorLogadoId)
     : null;
 
 function linkDetalhesPedido(int $pedidoId, string $busca): string
